@@ -1,0 +1,29 @@
+<div class="shell" [class.immersive]="ui.immersive()">
+  <nav class="sidebar" aria-label="التنقل">
+    <div class="brand">
+      <span class="brand-mark"><app-icon name="quran" [size]="19" [stroke]="1.9" /></span>
+      <span class="brand-name">ختمة</span>
+    </div>
+    @for (item of sidebar; track item.path) {
+      <a class="side-link" [routerLink]="item.path" routerLinkActive="active" [routerLinkActiveOptions]="item.path === '/' ? exactPath : subtree"
+        #rla="routerLinkActive" [attr.aria-current]="rla.isActive ? 'page' : null" [attr.title]="item.label">
+        <app-icon [name]="item.icon" [size]="22" [stroke]="rla.isActive ? 2 : 1.7" />
+        <span>{{ item.label }}</span>
+      </a>
+    }
+  </nav>
+
+  <main class="content">
+    <router-outlet />
+  </main>
+
+  <nav class="tabbar" aria-label="التنقل">
+    @for (item of tabs; track item.path) {
+      <a class="tab" [routerLink]="item.path" routerLinkActive="active" [routerLinkActiveOptions]="item.path === '/' ? exactPath : subtree"
+        #rla="routerLinkActive" [attr.aria-current]="rla.isActive ? 'page' : null">
+        <app-icon [name]="item.icon" [size]="25" [stroke]="rla.isActive ? 2 : 1.7" />
+        <span>{{ item.label }}</span>
+      </a>
+    }
+  </nav>
+</div>

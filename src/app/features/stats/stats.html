@@ -1,0 +1,85 @@
+<div class="page">
+  <header class="head">
+    <h1 class="large-title">الإحصائيات</h1>
+    <button type="button" class="ghost" (click)="confirmOpen.set(true)">ختمة جديدة</button>
+  </header>
+
+  <section class="tiles">
+    <div class="card tile"><span class="tile-value num">{{ avg() }}</span><span class="tile-label">متوسط الصفحة</span></div>
+    <div class="card tile"><span class="tile-value">{{ khatmaPages() }} ص</span><span class="tile-label">الختمة {{ khatmaTitle() }}</span></div>
+    <div class="card tile"><span class="tile-value">{{ total() }}</span><span class="tile-label">إجمالي القراءة</span></div>
+    @if (improvement(); as imp) {
+      <div class="improve" [class.slower]="!imp.faster">
+        <span class="bolt"><app-icon name="bolt" [size]="18" [stroke]="1.9" /></span>
+        <div>
+          <p class="improve-title">{{ imp.title }}</p>
+          <p class="improve-detail">{{ imp.detail }}</p>
+        </div>
+      </div>
+    }
+  </section>
+
+  <div class="table-head">
+    <h2>سجل الصفحات</h2>
+    <div class="filters">
+      @if (filter() !== 'all') {
+        <select class="select" (change)="pick($event)" [attr.aria-label]="filter() === 'surah' ? 'السورة' : 'الجزء'">
+          @for (o of filter() === 'surah' ? surahOptions : juzOptions; track o.value) {
+            <option [value]="o.value" [selected]="o.value === (filter() === 'surah' ? surahFilter() : juzFilter())">{{ o.label }}</option>
+          }
+        </select>
+      }
+      <div class="segmented" role="group" aria-label="تصفية">
+        <button type="button" [attr.aria-pressed]="filter() === 'all'" (click)="setFilter('all')">الكل</button>
+        <button type="button" [attr.aria-pressed]="filter() === 'surah'" (click)="setFilter('surah')">سورة</button>
+        <button type="button" [attr.aria-pressed]="filter() === 'juz'" (click)="setFilter('juz')">جزء</button>
+      </div>
+    </div>
+  </div>
+
+  <section class="card table" role="table" aria-label="سجل الصفحات">
+    <div class="row header" role="row">
+      <span role="columnheader">ص</span>
+      <span role="columnheader" class="wide">السورة</span>
+      <span role="columnheader" class="wide">الجزء</span>
+      <span role="columnheader">البداية<span class="narrow"> – النهاية</span></span>
+      <span role="columnheader" class="wide">النهاية</span>
+      <span role="columnheader">المدة</span>
+      <span role="columnheader" class="wide">أفضل وقت</span>
+      <span role="columnheader" class="end">مقابل السابقة</span>
+    </div>
+    <cdk-virtual-scroll-viewport scrollWindow [itemSize]="54">
+      <div class="row" role="row" *cdkVirtualFor="let r of rows(); trackBy: trackRow" [class.unread]="r.state === 'unread'" [class.last]="r.state === 'last'">
+        <span class="p">{{ r.page }}</span>
+        <span class="wide">{{ r.surah }}</span>
+        <span class="wide muted">{{ r.juz }}</span>
+        <span>
+          @switch (r.state) {
+            @case ('read') {
+              <span class="narrow">{{ r.range }}</span><span class="wide">{{ r.start }}</span>
+              <small>{{ r.date }}</small>
+            }
+            @case ('last') {
+              <span class="badge">آخر موقف</span>
+            }
+            @default {
+              <span class="muted">لم تُقرأ بعد</span>
+            }
+          }
+        </span>
+        <span class="wide">{{ r.end || '—' }}</span>
+        <span class="num strong">{{ r.duration }}</span>
+        <span class="wide num muted">{{ r.best }}</span>
+        <span class="end change" [class.slow]="!r.faster">{{ r.change }}</span>
+      </div>
+    </cdk-virtual-scroll-viewport>
+  </section>
+</div>
+
+<app-sheet [open]="confirmOpen()" title="ختمة جديدة" (closed)="confirmOpen.set(false)">
+  <p class="confirm-text">تبدأ الختمة {{ nextKhatmaTitle() }} من الصفحة الأولى. قراءاتك السابقة تبقى محفوظة، ونقارن بها سرعتك.</p>
+  <div class="confirm-actions">
+    <button type="button" class="primary" (click)="startNewKhatma()">ابدأ الختمة {{ nextKhatmaTitle() }}</button>
+    <button type="button" class="secondary" (click)="confirmOpen.set(false)">إلغاء</button>
+  </div>
+</app-sheet>

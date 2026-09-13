@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "app", "runtimeExecutable": "npx", "runtimeArgs": ["ng", "serve", "--port", "4200"], "port": 4200 },
+    { "name": "design-preview", "runtimeExecutable": "node", "runtimeArgs": ["design/preview.mjs"], "port": 4321 }
+  ]
+}

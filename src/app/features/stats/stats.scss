@@ -1,0 +1,125 @@
+.page {
+  max-width: 1088px;
+  margin: 0 auto;
+  padding: max(58px, env(safe-area-inset-top)) 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  @media (min-width: 768px) { padding: 36px 56px 40px; gap: 20px; }
+}
+
+.head { display: flex; align-items: center; justify-content: space-between; min-height: 44px; }
+
+.ghost {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 17px;
+  background: var(--fill);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  @media (min-width: 900px) { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+}
+
+.tile {
+  padding: 14px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--radius-list);
+  @media (min-width: 900px) { align-items: flex-start; padding: 18px 22px; flex-direction: column-reverse; }
+}
+.tile-value { font-size: 19px; font-weight: 700; white-space: nowrap; @media (min-width: 900px) { font-size: 28px; } }
+.tile-label { font-size: 11.5px; font-weight: 500; color: var(--ink-3); @media (min-width: 900px) { font-size: 13px; } }
+
+.improve {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-list);
+  background: var(--accent-soft);
+  @media (min-width: 900px) { grid-column: auto; }
+  p { margin: 0; }
+  &.slower { background: color-mix(in srgb, var(--warm) 12%, transparent); .bolt { background: var(--warm); } }
+}
+.bolt { flex: none; width: 38px; height: 38px; border-radius: 19px; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); }
+.improve-title { font-size: 15.5px; font-weight: 600; }
+.improve-detail { font-size: 12.5px; color: var(--ink-2); }
+
+.table-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 6px;
+  h2 { margin: 0; font-size: 20px; font-weight: 700; white-space: nowrap; }
+}
+.filters { display: flex; align-items: center; gap: 8px; .segmented { width: 170px; } }
+.select {
+  height: 36px;
+  max-width: 130px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--card);
+  box-shadow: 0 0 0 1px var(--line);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+}
+
+/* Table: phone shows 4 columns, wide screens show 8 */
+.table { overflow: hidden; border-radius: var(--radius-list); }
+
+.row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 56px 76px;
+  align-items: center;
+  gap: 8px;
+  height: 54px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13.5px;
+  > span { min-width: 0; }
+  small { display: block; font-size: 11px; color: var(--ink-3); }
+  &.unread { opacity: 0.55; }
+  &.last { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+}
+.row.header { height: 36px; font-size: 11.5px; font-weight: 500; color: var(--ink-3); }
+
+.wide { display: none; }
+.narrow { display: inline; }
+.end { text-align: left; }
+.p { font-size: 15px; font-weight: 700; }
+.strong { font-weight: 500; font-size: 14.5px; }
+.muted { color: var(--ink-3); }
+.change { font-size: 12.5px; font-weight: 600; color: var(--accent); &.slow { color: var(--warm); } }
+.badge { font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 3px 9px; border-radius: 20px; }
+
+@media (min-width: 900px) {
+  .row { grid-template-columns: 64px 130px 70px minmax(0, 1fr) minmax(0, 1fr) 90px 100px 110px; padding: 0 24px; font-size: 14.5px; }
+  .row.header { height: 42px; font-size: 12.5px; }
+  .wide { display: inline; }
+  .narrow { display: none; }
+  .row > span.wide { display: block; }
+}
+
+.confirm-text { margin: 8px 0 0; font-size: 15px; line-height: 1.7; color: var(--ink-2); }
+.confirm-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 18px;
+  button { height: 50px; border-radius: 14px; font-weight: 600; font-size: 16px; }
+  .primary { background: var(--accent); color: var(--on-accent); }
+  .secondary { background: var(--fill); }
+}

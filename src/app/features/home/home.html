@@ -1,0 +1,67 @@
+<div class="counter" dir="ltr" aria-hidden="true">
+  @for (part of counterParts(); track $index) {
+    <span>{{ part }}</span>
+  }
+</div>
+
+<div class="page">
+  <p class="date">{{ today }}</p>
+
+  <section class="hero" aria-live="polite">
+    <p class="eyebrow">ختمتك تحتاج منك</p>
+    <h1 class="big">
+      @if (khatmaWords().hours) {
+        <span>{{ khatmaWords().hours }}</span>
+      }
+      @if (khatmaWords().minutes) {
+        <span>{{ khatmaWords().hours ? 'و' : '' }}{{ khatmaWords().minutes }}</span>
+      }
+    </h1>
+    @if (k().estimated) {
+      <p class="sub estimated">تقدير مبدئي — اقرأ {{ ar(5) }} صفحات لنحسب سرعتك الحقيقية</p>
+    } @else {
+      <p class="sub">بمتوسط {{ avgText() }} لكل صفحة</p>
+    }
+  </section>
+
+  <div class="grid">
+    <section class="card frost remaining">
+      <div class="row">
+        <h2 class="label">المتبقي من ختمتك {{ khatmaOrdinal() }}</h2>
+        <span class="pill">{{ percent(1 - k().remainingRatio) }} مكتمل</span>
+      </div>
+      <p class="timer num" dir="ltr">{{ remainingClock() }}</p>
+      <div class="bar" role="progressbar" [attr.aria-valuenow]="k().pagesRead" aria-valuemin="0" aria-valuemax="604">
+        <span [style.width.%]="(1 - k().remainingRatio) * 100"></span>
+      </div>
+      <div class="row small">
+        <span>{{ pagesReadText() }}</span>
+        <span>{{ pagesLeftText() }}</span>
+      </div>
+      <div class="actions">
+        <p class="motto">كل دقيقة تفرق</p>
+        <a class="cta" routerLink="/quran">
+          <span>{{ hasStarted() ? 'أكمل القراءة' : 'ابدأ القراءة' }}</span>
+          <span class="cta-sub">صفحة {{ ar(lastPage()) }}، {{ lastSurah() }}</span>
+        </a>
+      </div>
+    </section>
+
+    <section class="card frost insight">
+      @if (insight(); as i) {
+        <h2 class="insight-title">قرأت {{ insightSurah() }} في {{ insightMinutesText() }}</h2>
+        <p class="insight-text">لو قرأت {{ insightMinutesText() }} كل يوم، تختم القرآن في <strong>{{ insightDays() }}</strong>.</p>
+      } @else {
+        <h2 class="insight-title">كم دقيقة تقدر تقرأ يومياً؟</h2>
+        <p class="insight-text">حرّك المؤشر وشوف متى تختم بسرعتك.</p>
+      }
+      <hr />
+      <label class="row calc" for="daily">
+        <span class="muted">لو قرأت يومياً</span>
+        <span class="calc-result"><strong>{{ dailyMinutesText() }}</strong><span class="muted">←</span><strong class="accent">{{ dailyDaysText() }}</strong></span>
+      </label>
+      <input id="daily" class="slider" type="range" min="5" max="120" step="5" [value]="dailyMinutes()" (input)="setDaily($event)"
+        [style.--fill]="sliderFill()" [attr.aria-valuetext]="dailyMinutesText()" />
+    </section>
+  </div>
+</div>

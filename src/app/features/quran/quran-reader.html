@@ -1,0 +1,98 @@
+<header class="kpis chrome-top">
+  <div class="kpi">
+    <span class="kpi-label">متوسط الصفحة</span>
+    <span class="kpi-value">{{ avg() }}</span>
+  </div>
+  <span class="divider"></span>
+  <div class="kpi">
+    <span class="kpi-label">المتبقي</span>
+    <span class="kpi-value">{{ remainingPct() }}</span>
+  </div>
+  <span class="divider"></span>
+  <div class="kpi">
+    <span class="kpi-label">المدة المتبقية</span>
+    <span class="kpi-value">{{ remainingTime() }}</span>
+  </div>
+  <button type="button" class="text-size" (click)="textOpen.set(true)" aria-label="حجم الخط">
+    <app-icon name="textSize" [size]="20" [stroke]="1.8" />
+  </button>
+</header>
+
+<div #pager class="pager" tabindex="0" aria-roledescription="المصحف" (scroll)="onScroll()" (click)="onTap($event)"
+  (wheel)="onWheel($event)" (touchstart)="onTouchStart($event)" (touchmove)="onTouchMove($event)" (touchend)="onTouchEnd()"
+  (touchcancel)="onTouchEnd()">
+  <div class="track" [style.width.px]="width() * total">
+    @for (p of slides(); track p) {
+      <div class="slide" [style.width.px]="width()" [style.inset-inline-start.px]="slideOffset(p)">
+        <app-mushaf-page [page]="p" [fontScale]="scale()" />
+      </div>
+    }
+  </div>
+</div>
+
+<button type="button" class="side prev" (click)="go(-1)" [disabled]="visiblePage() <= 1" aria-label="الصفحة السابقة">
+  <app-icon name="chevronRight" [size]="24" [stroke]="2" />
+</button>
+<button type="button" class="side next" (click)="go(1)" [disabled]="visiblePage() >= total" aria-label="الصفحة التالية">
+  <app-icon name="chevronLeft" [size]="24" [stroke]="2" />
+</button>
+
+<nav class="nav chrome-bottom" aria-label="التنقل في المصحف">
+  <button type="button" class="arrow" (click)="go(-1)" [disabled]="visiblePage() <= 1" aria-label="الصفحة السابقة">
+    <app-icon name="chevronRight" [size]="22" [stroke]="2" />
+  </button>
+  <div class="pill">
+    <button type="button" class="seg strong" (click)="openJump('page')">{{ ar(visiblePage()) }}</button>
+    <span class="sep"></span>
+    <button type="button" class="seg" (click)="openJump('surah')">{{ surahLabel() }}</button>
+    <span class="sep"></span>
+    <button type="button" class="seg muted" (click)="openJump('juz')">{{ juzLabel() }} <app-icon name="chevronDown" [size]="14" [stroke]="2" /></button>
+  </div>
+  <button type="button" class="arrow" (click)="go(1)" [disabled]="visiblePage() >= total" aria-label="الصفحة التالية">
+    <app-icon name="chevronLeft" [size]="22" [stroke]="2" />
+  </button>
+</nav>
+
+<app-sheet [open]="jumpOpen()" title="انتقل إلى" (closed)="jumpOpen.set(false)">
+  <div class="segmented" role="group">
+    <button type="button" [attr.aria-pressed]="jumpTab() === 'page'" (click)="jumpTab.set('page')">صفحة</button>
+    <button type="button" [attr.aria-pressed]="jumpTab() === 'surah'" (click)="jumpTab.set('surah')">سورة</button>
+    <button type="button" [attr.aria-pressed]="jumpTab() === 'juz'" (click)="jumpTab.set('juz')">جزء</button>
+  </div>
+
+  @switch (jumpTab()) {
+    @case ('page') {
+      <form class="page-form" (submit)="$event.preventDefault(); jumpToInput(pageInput)">
+        <input #pageInput type="text" inputmode="numeric" [placeholder]="'من ١ إلى ' + ar(total)" [attr.aria-label]="'رقم الصفحة'" />
+        <button type="submit">انتقل</button>
+      </form>
+    }
+    @case ('surah') {
+      <ul class="list">
+        @for (s of surahs; track s.n) {
+          <li>
+            <button type="button" (click)="jump(s.page)" [class.current]="s.name === surahLabel()">
+              <span class="n">{{ ar(s.n) }}</span><span class="name">{{ s.name }}</span><span class="meta">ص {{ ar(s.page) }}</span>
+            </button>
+          </li>
+        }
+      </ul>
+    }
+    @case ('juz') {
+      <div class="juz-grid">
+        @for (j of juzs; track j.n) {
+          <button type="button" (click)="jump(j.page)" [class.current]="juzLabel() === 'الجزء ' + ar(j.n)">{{ ar(j.n) }}</button>
+        }
+      </div>
+    }
+  }
+</app-sheet>
+
+<app-sheet [open]="textOpen()" title="حجم الخط" (closed)="textOpen.set(false)">
+  <div class="text-controls">
+    <button type="button" (click)="zoom(-0.1)" aria-label="تصغير"><app-icon name="minus" [size]="20" [stroke]="2" /></button>
+    <span class="scale">{{ scalePct() }}</span>
+    <button type="button" (click)="zoom(0.1)" aria-label="تكبير"><app-icon name="plus" [size]="20" [stroke]="2" /></button>
+  </div>
+  <p class="hint">تقدر تكبّر بإصبعين على الصفحة، أو Ctrl مع عجلة الماوس.</p>
+</app-sheet>

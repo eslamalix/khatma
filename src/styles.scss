@@ -1,0 +1,147 @@
+/* Design tokens — mirror design/build.mjs. */
+:root {
+  color-scheme: light dark;
+  --bg: #f7f5f0;
+  --paper: #fbf9f4;
+  --sheet: #fffdf8;
+  --card: #ffffff;
+  --card-frost: rgba(255, 255, 255, 0.72);
+  --ink: #1d1c1a;
+  --ink-2: #6e6b64;
+  --ink-3: #a9a59c;
+  --line: rgba(29, 28, 26, 0.08);
+  --track: #ece9e2;
+  --fill: rgba(29, 28, 26, 0.05);
+  --accent: #2f6f5c;
+  --accent-strong: #245747;
+  --accent-soft: #e6efea;
+  --on-accent: #ffffff;
+  --warm: #b4674a;
+  --counter: rgba(47, 111, 92, 0.1);
+  --chrome: rgba(247, 245, 240, 0.88);
+  --shadow: 0 1px 2px rgba(29, 28, 26, 0.04), 0 8px 24px rgba(29, 28, 26, 0.05);
+  --shadow-float: 0 8px 24px rgba(29, 28, 26, 0.22);
+
+  --font-ui: 'IBM Plex Sans Arabic', -apple-system, 'SF Arabic', 'Segoe UI', Tahoma, sans-serif;
+  --font-quran: 'Amiri Quran', 'Amiri', 'Traditional Arabic', serif;
+  --radius-card: 22px;
+  --radius-list: 18px;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --tabbar-h: calc(64px + env(safe-area-inset-bottom));
+  --sidebar-w: 0px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141413;
+    --paper: #171715;
+    --sheet: #1c1c1a;
+    --card: #1f1f1d;
+    --card-frost: rgba(31, 31, 29, 0.72);
+    --ink: #edebe6;
+    --ink-2: #a6a29a;
+    --ink-3: #6f6c66;
+    --line: rgba(255, 255, 255, 0.08);
+    --track: #2a2a27;
+    --fill: rgba(255, 255, 255, 0.06);
+    --accent: #6fb59a;
+    --accent-strong: #8cc9b1;
+    --accent-soft: rgba(111, 181, 154, 0.14);
+    --on-accent: #0f1a16;
+    --warm: #d48a6c;
+    --counter: rgba(111, 181, 154, 0.08);
+    --chrome: rgba(20, 20, 19, 0.86);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+    --shadow-float: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+}
+
+@media (min-width: 768px) {
+  :root { --tabbar-h: 0px; --sidebar-w: 76px; }
+}
+@media (min-width: 1200px) {
+  :root { --sidebar-w: 240px; }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  text-rendering: optimizeLegibility;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+a { color: var(--accent); text-decoration: none; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
+
+.num { font-variant-numeric: tabular-nums; }
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow);
+}
+
+.large-title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  @media (min-width: 768px) { font-size: 30px; }
+}
+
+.segmented {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 11px;
+  background: var(--track);
+  button {
+    flex: 1;
+    height: 32px;
+    border-radius: 9px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--ink-2);
+    transition: background 0.2s var(--ease), color 0.2s var(--ease);
+    &[aria-pressed='true'] {
+      background: var(--card);
+      color: var(--ink);
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(29, 28, 26, 0.12);
+    }
+  }
+}
+
+/* Smooth route changes (router withViewTransitions). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.22s;
+  animation-timing-function: var(--ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+}
