@@ -19,8 +19,9 @@ Decisions and their reasons: **`docs/DECISIONS.md`** (the source of truth). Appr
 | Timing engine (visibility, 3-min idle with 90 s credit, 10 s minimum) + reading store (IndexedDB) | done, unit-tested |
 | Stats: tiles, improvement vs previous khatma, 604-row virtual table with surah/juz filter, new-khatma sheet | done |
 | Firebase: lazy-loaded, anonymous auth, readings + `status/public` mirrored to Firestore; `firestore.rules`, `firebase.json`, `.firebaserc` | code done — **console setup pending (see §4)** |
-| PWA (service worker in production builds, Arabic manifest) | done, default Angular icons |
-| Awrad, Calendar | "قريباً" placeholders — phase 2 |
+| Calendar | month heatmap, week bars, 24h dial clock, sessions grouping, responsive 2-column desktop | done, unit-tested |
+| Awrad | smart tasbeeh with haptics/spacebar/auto-advance (33/33/34), groups sheets (Tahseen, Ruqyah), morning/evening adhkar | done, unit-tested |
+| Reading settings & Multiple ayah selection | unified settings sheet (cream/white/dark/auto themes, horizontal/vertical mode, font scale), zero-overlap continuous translucent highlight via linear-gradient transparent vertical bands (7px) & 2.35 line-height, bottom floating action bar with `+` / `-` range stepper, copy with feedback, save to groups with repeat selector 1/3/7 and new group creation, synced with Awrad via `AwradStore`, bottom nav gracefully tucks away while selecting | done, unit-tested |
 
 ## 3. Run / test
 ```bash
@@ -30,7 +31,7 @@ npx ng test --watch=false
 npx ng build
 bash scripts/screens.sh   # with the dev server running: PNGs of phone/desktop screens into screens/
 ```
-Code map: `src/app/core` (quran meta + page loading, timing engine, reading store + KPI maths, cloud sync, format), `src/app/features` (home, quran, stats, soon), `src/app/ui` (icon, sheet, ui-state).
+Code map: `src/app/core` (quran meta + page loading, timing engine, reading store + KPI maths, awrad store, cloud sync, format), `src/app/features` (home, quran, awrad, stats, calendar), `src/app/ui` (icon, sheet, ui-state).
 
 Rules kept from design review: Arabic comma instead of `·` next to Arabic digits; "أسرع/أبطأ ٪" words instead of arrows; timers in `dir="ltr"`; counted nouns via `counted()` in `core/format.ts`.
 
@@ -42,4 +43,7 @@ Rules kept from design review: Arabic comma instead of `·` next to Arabic digit
 Also open: app name + icon, adhkar text review (phase 2), licence check for the Quran data source before launch.
 
 ## 5. Next
-Phase 2 (`docs/DECISIONS.md` §3): calendar (month heatmap / week bars / day clock), ayah & partial-ayah selection → groups, awrad with tasbeeh, reading settings (backgrounds, reading mode). Then phase 3: Google/email sign-in with account linking, family sharing, Capacitor.
+Phase 3 (`docs/DECISIONS.md` §3):
+- **تسجيل الدخول (Google والإيميل):** ربط الحساب المؤقت Anonymous بحساب دائم، ومزامنة السحابة الكاملة.
+- **مشاركة الأهل (Family sharing):** دعوات الرموز ومتابعة ختمات أفراد العائلة المشتركة في بطاقة مخصصة.
+- **تطبيق الجوال بـ Capacitor:** تغليف التطبيق كـ native app للـ iOS والـ Android مع إشعارات الأوراد.

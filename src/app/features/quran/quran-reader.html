@@ -13,18 +13,28 @@
     <span class="kpi-label">المدة المتبقية</span>
     <span class="kpi-value">{{ remainingTime() }}</span>
   </div>
-  <button type="button" class="text-size" (click)="textOpen.set(true)" aria-label="حجم الخط">
-    <app-icon name="textSize" [size]="20" [stroke]="1.8" />
+  <button type="button" class="settings-trigger" (click)="settingsOpen.set(true)" aria-label="إعدادات القراءة">
+    <app-icon name="sliders" [size]="20" [stroke]="1.8" />
   </button>
 </header>
 
-<div #pager class="pager" tabindex="0" aria-roledescription="المصحف" (scroll)="onScroll()" (click)="onTap($event)"
-  (wheel)="onWheel($event)" (touchstart)="onTouchStart($event)" (touchmove)="onTouchMove($event)" (touchend)="onTouchEnd()"
+<div #pager class="pager" [class.vertical]="readingMode() === 'vertical'" tabindex="0" aria-roledescription="المصحف"
+  (scroll)="onScroll()" (click)="onTap($event)" (wheel)="onWheel($event)"
+  (touchstart)="onTouchStart($event)" (touchmove)="onTouchMove($event)" (touchend)="onTouchEnd()"
   (touchcancel)="onTouchEnd()">
-  <div class="track" [style.width.px]="width() * total">
+  <div class="track"
+    [style.width.px]="readingMode() === 'horizontal' ? width() * total : width()"
+    [style.height.px]="readingMode() === 'vertical' ? height() * total : null">
     @for (p of slides(); track p) {
-      <div class="slide" [style.width.px]="width()" [style.inset-inline-start.px]="slideOffset(p)">
-        <app-mushaf-page [page]="p" [fontScale]="scale()" />
+      <div class="slide"
+        [style.width.px]="width()"
+        [style.inset-inline-start.px]="readingMode() === 'horizontal' ? slideOffset(p) : null"
+        [style.top.px]="readingMode() === 'vertical' ? slideOffsetVertical(p) : null">
+        <app-mushaf-page
+          [page]="p"
+          [fontScale]="scale()"
+          [selectedRange]="selectedRange()"
+          (ayahClicked)="onAyahClicked($event)" />
       </div>
     }
   </div>
@@ -53,6 +63,47 @@
   </button>
 </nav>
 
+<!-- Ayah Floating Action Bar -->
+@if (selectedRange(); as r) {
+  <aside class="ayah-bar" role="toolbar" aria-label="إجراءات الآيات المحددة">
+    <button type="button" class="ayah-close" (click)="selectedRange.set(null)" aria-label="إلغاء التحديد">
+      <app-icon name="close" [size]="14" [stroke]="2.2" />
+    </button>
+    <span class="bar-sep"></span>
+    <div class="ayah-bar-info">
+      <span class="ayah-badge">{{ selectionLabel() }}</span>
+      <div class="stepper" role="group" aria-label="تعديل نطاق الآيات">
+        <button type="button" class="step-btn" (click)="expandSelection(-1)" [disabled]="!canShrink()" aria-label="تقليص آية">
+          <app-icon name="minus" [size]="13" [stroke]="2.4" />
+        </button>
+        <button type="button" class="step-btn" (click)="expandSelection(1)" [disabled]="!canExpand()" aria-label="إضافة آية تالية">
+          <app-icon name="plus" [size]="13" [stroke]="2.4" />
+        </button>
+      </div>
+    </div>
+    <span class="bar-sep"></span>
+    <div class="ayah-bar-actions">
+      <button type="button" class="bar-btn" (click)="copySelection()" aria-label="نسخ الآيات">
+        <app-icon [name]="copiedToast() ? 'check' : 'copy'" [size]="14" [stroke]="2" />
+        <span>{{ copiedToast() ? 'تم النسخ' : 'نسخ' }}</span>
+      </button>
+      <button type="button" class="bar-btn primary" (click)="openSaveToGroup()" aria-label="حفظ في مجموعة">
+        <app-icon name="bookmark" [size]="14" [stroke]="2" />
+        <span>حفظ في مجموعة</span>
+      </button>
+    </div>
+  </aside>
+}
+
+<!-- Save toast confirmation -->
+@if (saveToast(); as toast) {
+  <div class="toast-popup" role="status">
+    <app-icon name="check" [size]="16" [stroke]="2.5" />
+    <span>{{ toast }}</span>
+  </div>
+}
+
+<!-- Jump Sheet -->
 <app-sheet [open]="jumpOpen()" title="انتقل إلى" (closed)="jumpOpen.set(false)">
   <div class="segmented" role="group">
     <button type="button" [attr.aria-pressed]="jumpTab() === 'page'" (click)="jumpTab.set('page')">صفحة</button>
@@ -88,11 +139,107 @@
   }
 </app-sheet>
 
-<app-sheet [open]="textOpen()" title="حجم الخط" (closed)="textOpen.set(false)">
-  <div class="text-controls">
-    <button type="button" (click)="zoom(-0.1)" aria-label="تصغير"><app-icon name="minus" [size]="20" [stroke]="2" /></button>
-    <span class="scale">{{ scalePct() }}</span>
-    <button type="button" (click)="zoom(0.1)" aria-label="تكبير"><app-icon name="plus" [size]="20" [stroke]="2" /></button>
+<!-- Reading Settings Sheet -->
+<app-sheet [open]="settingsOpen()" title="إعدادات القراءة" (closed)="settingsOpen.set(false)">
+  <div class="settings-sheet">
+    <section class="settings-group">
+      <h4 class="settings-title">خلفية المصحف</h4>
+      <div class="theme-grid">
+        <button type="button" class="theme-swatch" [class.active]="backgroundTheme() === 'auto'" (click)="setBackgroundTheme('auto')">
+          <span class="swatch-preview" style="background: linear-gradient(135deg, #fffdf8 50%, #1c1c1a 50%)"></span>
+          <span class="swatch-name">تلقائي</span>
+          @if (backgroundTheme() === 'auto') {
+            <span class="swatch-check"><app-icon name="check" [size]="14" [stroke]="2.5" /></span>
+          }
+        </button>
+        <button type="button" class="theme-swatch" [class.active]="backgroundTheme() === 'cream'" (click)="setBackgroundTheme('cream')">
+          <span class="swatch-preview" style="background: #fbf9f4"></span>
+          <span class="swatch-name">كريمي</span>
+          @if (backgroundTheme() === 'cream') {
+            <span class="swatch-check"><app-icon name="check" [size]="14" [stroke]="2.5" /></span>
+          }
+        </button>
+        <button type="button" class="theme-swatch" [class.active]="backgroundTheme() === 'white'" (click)="setBackgroundTheme('white')">
+          <span class="swatch-preview" style="background: #ffffff"></span>
+          <span class="swatch-name">أبيض</span>
+          @if (backgroundTheme() === 'white') {
+            <span class="swatch-check"><app-icon name="check" [size]="14" [stroke]="2.5" /></span>
+          }
+        </button>
+        <button type="button" class="theme-swatch" [class.active]="backgroundTheme() === 'dark'" (click)="setBackgroundTheme('dark')">
+          <span class="swatch-preview" style="background: #1c1c1a"></span>
+          <span class="swatch-name">داكن</span>
+          @if (backgroundTheme() === 'dark') {
+            <span class="swatch-check"><app-icon name="check" [size]="14" [stroke]="2.5" /></span>
+          }
+        </button>
+      </div>
+    </section>
+
+    <section class="settings-group">
+      <h4 class="settings-title">طريقة القراءة</h4>
+      <div class="segmented" role="group">
+        <button type="button" [attr.aria-pressed]="readingMode() === 'horizontal'" (click)="setReadingMode('horizontal')">سحب أفقي</button>
+        <button type="button" [attr.aria-pressed]="readingMode() === 'vertical'" (click)="setReadingMode('vertical')">تمرير عمودي</button>
+      </div>
+    </section>
+
+    <section class="settings-group">
+      <h4 class="settings-title">حجم الخط</h4>
+      <div class="text-controls">
+        <button type="button" (click)="zoom(-0.1)" aria-label="تصغير"><app-icon name="minus" [size]="20" [stroke]="2" /></button>
+        <span class="scale">{{ scalePct() }}</span>
+        <button type="button" (click)="zoom(0.1)" aria-label="تكبير"><app-icon name="plus" [size]="20" [stroke]="2" /></button>
+      </div>
+      <p class="hint">تقدر تكبّر بإصبعين على الصفحة، أو Ctrl مع عجلة الماوس.</p>
+    </section>
   </div>
-  <p class="hint">تقدر تكبّر بإصبعين على الصفحة، أو Ctrl مع عجلة الماوس.</p>
+</app-sheet>
+
+<!-- Save Ayah to Group Sheet -->
+<app-sheet [open]="saveToGroupOpen()" title="حفظ في مجموعة" (closed)="saveToGroupOpen.set(false)">
+  @if (selectedRange(); as r) {
+    <div class="save-passage-preview">
+      <span class="ref">{{ selectionLabel() }}</span>
+      <p class="ayah-snippet">
+        {{ r.ayahs.length === 1 ? r.ayahs[0].words.join(' ') : (r.ayahs[0].words.slice(0, 7).join(' ') + ' ... ' + r.ayahs[r.ayahs.length - 1].words.slice(-6).join(' ')) }}
+      </p>
+    </div>
+  }
+
+  <div class="save-form">
+    <label class="field-label">المجموعة المستهدفة</label>
+    <div class="groups-chips">
+      @for (g of awradStore.groups(); track g.id) {
+        <button type="button" class="chip" [class.active]="!isAddingNewGroup() && targetGroupId() === g.id"
+          (click)="isAddingNewGroup.set(false); targetGroupId.set(g.id)">
+          <app-icon [name]="g.icon" [size]="14" [stroke]="2" />
+          <span>{{ g.title }}</span>
+        </button>
+      }
+      <button type="button" class="chip new-chip" [class.active]="isAddingNewGroup()"
+        (click)="isAddingNewGroup.set(true)">
+        <app-icon name="plus" [size]="14" [stroke]="2" />
+        <span>مجموعة جديدة...</span>
+      </button>
+    </div>
+
+    @if (isAddingNewGroup()) {
+      <div class="new-group-row">
+        <input type="text" [(ngModel)]="newGroupInput" placeholder="اسم المجموعة الجديدة..." class="new-group-field" />
+      </div>
+    }
+
+    <label class="field-label" style="margin-top: 14px;">عدد التكرار المستهدف</label>
+    <div class="segmented repeat-seg">
+      <button type="button" [attr.aria-pressed]="repeatCount() === 1" (click)="repeatCount.set(1)">١ مرة</button>
+      <button type="button" [attr.aria-pressed]="repeatCount() === 3" (click)="repeatCount.set(3)">٣ مرات</button>
+      <button type="button" [attr.aria-pressed]="repeatCount() === 7" (click)="repeatCount.set(7)">٧ مرات</button>
+    </div>
+
+    <button type="button" class="save-confirm-btn" (click)="confirmSaveToGroup()"
+      [disabled]="isAddingNewGroup() && !newGroupInput.trim()">
+      حفظ في المجموعة
+    </button>
+  </div>
 </app-sheet>

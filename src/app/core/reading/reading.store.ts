@@ -4,7 +4,7 @@ import { CloudSync } from '../sync/cloud-sync';
 import { clampPage } from '../quran/quran-meta';
 import { demoData } from '../dev/demo-data';
 import { computeKpis, latestSurahInsight, pageRows } from './kpi';
-import { DEFAULT_STATE, Reading, ReadingState } from './reading';
+import { BackgroundTheme, DEFAULT_STATE, Reading, ReadingMode, ReadingState } from './reading';
 import { PageVisit } from '../timing/timing-engine';
 
 const STATE_KEY = 'state';
@@ -45,6 +45,14 @@ export class ReadingStore {
 
   setFontScale(fontScale: number) {
     this.patchState({ fontScale: Math.min(2, Math.max(0.7, Math.round(fontScale * 100) / 100)) });
+  }
+
+  setBackgroundTheme(backgroundTheme: BackgroundTheme) {
+    this.patchState({ backgroundTheme });
+  }
+
+  setReadingMode(readingMode: ReadingMode) {
+    this.patchState({ readingMode });
   }
 
   startNewKhatma() {

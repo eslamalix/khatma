@@ -30,5 +30,5 @@ export function demoData(now = Date.now()): { readings: Reading[]; state: Readin
     add(page, 2, Math.round(ms), Math.round(t));
   }
 
-  return { readings, state: { currentKhatma: 2, lastPage: 50, lastReadAt: t, fontScale: 1 } };
+  return { readings, state: { currentKhatma: 2, lastPage: 50, lastReadAt: t, fontScale: 1, backgroundTheme: 'auto', readingMode: 'horizontal' } };
 }

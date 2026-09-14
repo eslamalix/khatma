@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { QuranPages } from '../../core/quran/quran-pages.service';
 import { QuranAyah, QuranPage } from '../../core/quran/quran-page';
 import { ar } from '../../core/format';
@@ -18,11 +18,27 @@ export class MushafPage {
   private readonly pages = inject(QuranPages);
   readonly page = input.required<number>();
   readonly fontScale = input(1);
+  readonly selectedRange = input<{ surah: number; startAyah: number; endAyah: number } | null>(null);
+  readonly ayahClicked = output<{ ayah: QuranAyah; pageAyahs: QuranAyah[] }>();
 
   protected readonly data = signal<QuranPage | null>(null);
   protected readonly failed = signal(false);
   protected readonly ar = ar;
   protected readonly surahName = surahName;
+
+  protected isAyahSelected(a: QuranAyah): boolean {
+    const r = this.selectedRange();
+    if (!r) return false;
+    return a.surah === r.surah && a.ayah >= r.startAyah && a.ayah <= r.endAyah;
+  }
+
+  protected selectAyah(a: QuranAyah, event: MouseEvent) {
+    event.stopPropagation();
+    this.ayahClicked.emit({
+      ayah: a,
+      pageAyahs: this.data()?.ayahs ?? [a],
+    });
+  }
 
   protected readonly blocks = computed<Block[]>(() => {
     const blocks: Block[] = [];

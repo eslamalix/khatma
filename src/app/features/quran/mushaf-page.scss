@@ -55,13 +55,50 @@
   margin: 0;
   font-family: var(--font-quran);
   font-size: calc(24.5px * var(--scale));
-  line-height: 2.2;
+  line-height: 2.35;
   text-align: justify;
   text-align-last: center;
   @media (min-width: 768px) { font-size: calc(28px * var(--scale)); }
 }
 
 :host(.opening) .text { text-align: center; }
+
+.ayah-unit {
+  display: inline;
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 0 4px;
+  margin: 0 1px;
+  transition: background 0.18s var(--ease);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+
+  @media (hover: hover) {
+    &:not(.selected):hover {
+      background: linear-gradient(
+        180deg,
+        transparent 7px,
+        color-mix(in srgb, var(--accent) 6%, transparent) 7px,
+        color-mix(in srgb, var(--accent) 6%, transparent) calc(100% - 7px),
+        transparent calc(100% - 7px)
+      );
+    }
+  }
+
+  &.selected {
+    background: linear-gradient(
+      180deg,
+      transparent 7px,
+      color-mix(in srgb, var(--accent) 14%, transparent) 7px,
+      color-mix(in srgb, var(--accent) 14%, transparent) calc(100% - 7px),
+      transparent calc(100% - 7px)
+    );
+    .end {
+      color: var(--accent-strong);
+      font-weight: 700;
+    }
+  }
+}
 
 .end {
   color: var(--accent);

@@ -8,8 +8,15 @@
         }
       } @else {
         <p class="text">
-          @for (a of block.ayahs; track a.ayah) {
-            <span class="ayah">{{ a.words.join(' ') }}</span><span class="end" [attr.aria-label]="'آية ' + ar(a.ayah)">﴿{{ ar(a.ayah) }}﴾</span>{{ ' ' }}
+          @for (a of block.ayahs; track (a.surah + ':' + a.ayah)) {
+            <span class="ayah-unit"
+              [class.selected]="isAyahSelected(a)"
+              (click)="selectAyah(a, $event)"
+              tabindex="0"
+              role="button"
+              [attr.aria-label]="surahName(a.surah) + ' آية ' + ar(a.ayah)">
+              <span class="ayah">{{ a.words.join(' ') }}</span><span class="end" [attr.aria-label]="'آية ' + ar(a.ayah)">﴿{{ ar(a.ayah) }}﴾</span>
+            </span>{{ ' ' }}
           }
         </p>
       }

@@ -13,12 +13,24 @@ export interface Reading {
   synced: 0 | 1;
 }
 
+export type BackgroundTheme = 'auto' | 'cream' | 'white' | 'dark';
+export type ReadingMode = 'horizontal' | 'vertical';
+
 export interface ReadingState {
   currentKhatma: number;
   lastPage: number;
   lastReadAt: number | null;
   /** Quran text scale, 1 = default. */
   fontScale: number;
+  backgroundTheme: BackgroundTheme;
+  readingMode: ReadingMode;
 }
 
-export const DEFAULT_STATE: ReadingState = { currentKhatma: 1, lastPage: 1, lastReadAt: null, fontScale: 1 };
+export const DEFAULT_STATE: ReadingState = {
+  currentKhatma: 1,
+  lastPage: 1,
+  lastReadAt: null,
+  fontScale: 1,
+  backgroundTheme: 'auto',
+  readingMode: 'horizontal',
+};

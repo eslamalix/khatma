@@ -1,0 +1,365 @@
+<div class="calendar-page">
+  <!-- Top Header -->
+  <header class="page-header">
+    <h1 class="page-title">التقويم</h1>
+    <div class="user-pill">
+      <div class="avatar">أ</div>
+      <span>أنا</span>
+      <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7 10l5 5 5-5"></path>
+      </svg>
+    </div>
+  </header>
+
+  <!-- ================= MOBILE VIEW (< 768px) ================= -->
+  <div class="mobile-layout">
+    <!-- View Switcher Tabs -->
+    <div class="segmented-control" role="tablist" aria-label="طريقة عرض التقويم">
+      <button type="button" class="segment" [class.active]="viewMode() === 'month'" (click)="setView('month')">شهر</button>
+      <button type="button" class="segment" [class.active]="viewMode() === 'week'" (click)="setView('week')">أسبوع</button>
+      <button type="button" class="segment" [class.active]="viewMode() === 'day'" (click)="setView('day')">يوم</button>
+    </div>
+
+    <!-- Period Navigator -->
+    <div class="period-nav">
+      <button type="button" class="nav-btn" (click)="prevPeriod()" aria-label="الفترة السابقة">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9.5 6l6 6-6 6"></path>
+        </svg>
+      </button>
+
+      <div class="period-text">
+        @if (viewMode() === 'month') {
+          <div class="period-title">{{ monthData().title }}</div>
+          <div class="period-sub">{{ monthData().summaryStr }}</div>
+        } @else if (viewMode() === 'week') {
+          <div class="period-title">{{ weekData().title }}</div>
+          <div class="period-sub">{{ weekData().summaryStr }}</div>
+        } @else {
+          <div class="period-title">{{ dayData().title }}</div>
+          <div class="period-sub">{{ dayData().sessionCountStr }}</div>
+        }
+      </div>
+
+      <button type="button" class="nav-btn" (click)="nextPeriod()" aria-label="الفترة التالية">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14.5 6l-6 6 6 6"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- MONTH VIEW (MOBILE) -->
+    @if (viewMode() === 'month') {
+      <section class="card cal-card">
+        <div class="weekdays-grid">
+          @for (w of weekdayHeaders; track $index) {
+            <span class="weekday-cell">{{ w }}</span>
+          }
+        </div>
+
+        <div class="month-grid">
+          @for (d of monthData().days; track $index) {
+            @if (d) {
+              <button
+                type="button"
+                class="day-cell"
+                [class.today]="d.dateStr === todayStr"
+                [class.selected]="d.dateStr === selectedDateStr()"
+                [class.lvl-0]="d.intensity === 0"
+                [class.lvl-1]="d.intensity === 1"
+                [class.lvl-2]="d.intensity === 2"
+                [class.lvl-3]="d.intensity === 3"
+                [class.lvl-4]="d.intensity === 4"
+                (click)="selectDay(d)"
+              >
+                {{ ar(d.dayOfMonth) }}
+              </button>
+            } @else {
+              <div class="day-cell empty"></div>
+            }
+          }
+        </div>
+
+        <!-- Heatmap legend -->
+        <div class="legend">
+          <span>أقل</span>
+          <span class="legend-box lvl-0"></span>
+          <span class="legend-box lvl-1"></span>
+          <span class="legend-box lvl-2"></span>
+          <span class="legend-box lvl-3"></span>
+          <span class="legend-box lvl-4"></span>
+          <span>أكثر</span>
+        </div>
+      </section>
+
+      <!-- Last Position Card -->
+      @if (lastPosition(); as lp) {
+        <div class="card last-position-card">
+          <div class="icon-wrap">
+            <app-icon name="quran" [size]="19" [stroke]="1.8" />
+          </div>
+          <div class="details">
+            <span class="label">آخر موقف</span>
+            <span class="value">صفحة {{ lp.page }}، {{ lp.surah }}</span>
+          </div>
+          @if (lp.timeStr) {
+            <div class="time">{{ lp.timeStr }}</div>
+          }
+        </div>
+      }
+    }
+
+    <!-- WEEK VIEW (MOBILE) -->
+    @if (viewMode() === 'week') {
+      <section class="card cal-card">
+        <div class="chart-header-label">دقائق القراءة</div>
+        <div class="bars-container">
+          @for (b of weekData().bars; track b.dateStr) {
+            <div
+              class="bar-col"
+              [class.selected]="b.isSelected"
+              [class.is-best]="b.isBest"
+              (click)="selectDateStr(b.dateStr)"
+            >
+              <span class="val-label" [class.zero]="b.minutes === 0">{{ b.minutesStr }}</span>
+              <div class="bar-pill" [style.height.px]="b.heightPx"></div>
+              <span class="day-name">{{ b.dayName }}</span>
+              <span class="day-num">{{ b.dayNum }}</span>
+            </div>
+          }
+        </div>
+      </section>
+
+      <div class="week-stats-row">
+        <div class="card summary-card">
+          <div class="card-label">أفضل يوم</div>
+          <div class="card-title">{{ weekData().bestDay?.name ?? '—' }}</div>
+          <div class="card-sub">
+            @if (weekData().bestDay; as bd) {
+              {{ ar(bd.minutes) }} دقيقة، {{ ar(bd.pages) }} صفحة
+            } @else {
+              لا توجد قراءة بعد
+            }
+          </div>
+        </div>
+
+        <div class="card summary-card">
+          <div class="card-label">المعدل اليومي</div>
+          <div class="card-title">{{ ar(weekData().dailyAvgMinutes) }} دقيقة</div>
+          <div class="card-sub">{{ ar(weekData().dailyAvgPages) }} صفحة تقريباً</div>
+        </div>
+      </div>
+    }
+
+    <!-- DAY VIEW (MOBILE) -->
+    @if (viewMode() === 'day') {
+      <section class="card cal-card clock-card">
+        <div class="clock-wrap">
+          <svg class="clock-svg" width="320" height="320" viewBox="0 0 320 320">
+            <circle cx="160" cy="160" r="108" fill="none" class="clock-base-track" stroke-width="18" />
+
+            @for (t of dayData().clockTicks; track $index) {
+              <line [attr.x1]="t.x1" [attr.y1]="t.y1" [attr.x2]="t.x2" [attr.y2]="t.y2" class="tick-line" stroke-width="1.4" stroke-linecap="round" />
+            }
+
+            @for (s of dayData().sessions; track s.startAt) {
+              <path [attr.d]="s.arcPath" fill="none" class="session-arc" stroke-width="18" stroke-linecap="round" />
+            }
+
+            <text x="160" y="28" text-anchor="middle" dominant-baseline="middle" class="cardinal-text">١٢ ص</text>
+            <text x="293" y="161" text-anchor="middle" dominant-baseline="middle" class="cardinal-text">٦ ص</text>
+            <text x="160" y="294" text-anchor="middle" dominant-baseline="middle" class="cardinal-text">١٢ م</text>
+            <text x="27" y="161" text-anchor="middle" dominant-baseline="middle" class="cardinal-text">٦ م</text>
+          </svg>
+
+          <div class="clock-center">
+            <span class="center-minutes">{{ ar(dayData().totalMinutes) }}</span>
+            <span class="center-unit">دقيقة</span>
+            @if (dayData().totalPages > 0) {
+              <span class="center-pages">{{ ar(dayData().totalPages) }} صفحة</span>
+            }
+          </div>
+        </div>
+      </section>
+
+      <!-- Sessions List -->
+      <section class="card sessions-list">
+        @if (dayData().sessions.length > 0) {
+          @for (s of dayData().sessions; track s.startAt) {
+            <div class="session-row">
+              <div class="dot"></div>
+              <div class="info">
+                <div class="range">{{ s.timeRange }}</div>
+                <div class="sub">ص {{ ar(s.startPage) }} – {{ ar(s.endPage) }}، {{ s.surahSummary }}</div>
+              </div>
+              <div class="duration">{{ s.durationStr }}</div>
+            </div>
+          }
+        } @else {
+          <div class="empty-sessions">لم تقرأ في هذا اليوم</div>
+        }
+      </section>
+    }
+  </div>
+
+  <!-- ================= DESKTOP VIEW (>= 768px) ================= -->
+  <div class="desktop-layout">
+    <!-- Left Column: Month Heatmap & Last Position -->
+    <div class="side-col">
+      <section class="card cal-card">
+        <div class="period-nav">
+          <button type="button" class="nav-btn" (click)="prevMonth()" aria-label="الشهر السابق">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9.5 6l6 6-6 6"></path>
+            </svg>
+          </button>
+          <div class="period-text">
+            <div class="period-title">{{ monthData().title }}</div>
+            <div class="period-sub">{{ monthData().summaryStr }}</div>
+          </div>
+          <button type="button" class="nav-btn" (click)="nextMonth()" aria-label="الشهر التالي">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14.5 6l-6 6 6 6"></path>
+            </svg>
+          </button>
+        </div>
+
+        <div class="weekdays-grid">
+          @for (w of weekdayHeaders; track $index) {
+            <span class="weekday-cell">{{ w }}</span>
+          }
+        </div>
+
+        <div class="month-grid">
+          @for (d of monthData().days; track $index) {
+            @if (d) {
+              <button
+                type="button"
+                class="day-cell"
+                [class.today]="d.dateStr === todayStr"
+                [class.selected]="d.dateStr === selectedDateStr()"
+                [class.lvl-0]="d.intensity === 0"
+                [class.lvl-1]="d.intensity === 1"
+                [class.lvl-2]="d.intensity === 2"
+                [class.lvl-3]="d.intensity === 3"
+                [class.lvl-4]="d.intensity === 4"
+                (click)="selectDay(d)"
+              >
+                {{ ar(d.dayOfMonth) }}
+              </button>
+            } @else {
+              <div class="day-cell empty"></div>
+            }
+          }
+        </div>
+
+        <div class="legend">
+          <span>أقل</span>
+          <span class="legend-box lvl-0"></span>
+          <span class="legend-box lvl-1"></span>
+          <span class="legend-box lvl-2"></span>
+          <span class="legend-box lvl-3"></span>
+          <span class="legend-box lvl-4"></span>
+          <span>أكثر</span>
+        </div>
+      </section>
+
+      @if (lastPosition(); as lp) {
+        <div class="card last-position-card">
+          <div class="icon-wrap">
+            <app-icon name="quran" [size]="19" [stroke]="1.8" />
+          </div>
+          <div class="details">
+            <span class="label">آخر موقف</span>
+            <span class="value">صفحة {{ lp.page }}، {{ lp.surah }}</span>
+          </div>
+          @if (lp.timeStr) {
+            <div class="time">{{ lp.timeStr }}</div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Right Column: Week Bar Chart + Day Clock & Sessions -->
+    <div class="main-col">
+      <!-- Week Bar Chart -->
+      <section class="card cal-card">
+        <div class="panel-header-line">
+          <div class="panel-heading">الأسبوع، {{ weekData().title }}</div>
+          <div class="panel-sub">{{ weekData().summaryStr }}</div>
+        </div>
+
+        <div class="bars-container">
+          @for (b of weekData().bars; track b.dateStr) {
+            <div
+              class="bar-col"
+              [class.selected]="b.isSelected"
+              [class.is-best]="b.isBest"
+              (click)="selectDateStr(b.dateStr)"
+            >
+              <span class="val-label" [class.zero]="b.minutes === 0">{{ b.minutesStr }}</span>
+              <div class="bar-pill" [style.height.px]="b.heightPx"></div>
+              <span class="day-name">{{ b.dayName }} {{ b.dayNum }}</span>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- Day Clock & Sessions Panel -->
+      <section class="card cal-card">
+        <div class="panel-header-line">
+          <div class="panel-heading">{{ dayData().title }}</div>
+          <div class="panel-sub">{{ dayData().sessionCountStr }}</div>
+        </div>
+
+        <div class="day-content-split">
+          <!-- 24h Clock -->
+          <div class="clock-wrap desktop-clock">
+            <svg class="clock-svg" width="320" height="320" viewBox="0 0 320 320">
+              <circle cx="160" cy="160" r="108" fill="none" class="clock-base-track" stroke-width="18" />
+
+              @for (t of dayData().clockTicks; track $index) {
+                <line [attr.x1]="t.x1" [attr.y1]="t.y1" [attr.x2]="t.x2" [attr.y2]="t.y2" class="tick-line" stroke-width="1.4" stroke-linecap="round" />
+              }
+
+              @for (s of dayData().sessions; track s.startAt) {
+                <path [attr.d]="s.arcPath" fill="none" class="session-arc" stroke-width="18" stroke-linecap="round" />
+              }
+
+              <text x="160" y="28" text-anchor="middle" dominant-baseline="middle" class="cardinal-text">١٢ ص</text>
+              <text x="293" y="161" text-anchor="middle" dominant-baseline="middle" class="cardinal-text">٦ ص</text>
+              <text x="160" y="294" text-anchor="middle" dominant-baseline="middle" class="cardinal-text">١٢ م</text>
+              <text x="27" y="161" text-anchor="middle" dominant-baseline="middle" class="cardinal-text">٦ م</text>
+            </svg>
+
+            <div class="clock-center">
+              <span class="center-minutes">{{ ar(dayData().totalMinutes) }}</span>
+              <span class="center-unit">دقيقة</span>
+              @if (dayData().totalPages > 0) {
+                <span class="center-pages">{{ ar(dayData().totalPages) }} صفحة</span>
+              }
+            </div>
+          </div>
+
+          <!-- Sessions List -->
+          <div class="sessions-list desktop">
+            @if (dayData().sessions.length > 0) {
+              @for (s of dayData().sessions; track s.startAt) {
+                <div class="session-row">
+                  <div class="dot"></div>
+                  <div class="info">
+                    <div class="range">{{ s.timeRange }}</div>
+                    <div class="sub">ص {{ ar(s.startPage) }} – {{ ar(s.endPage) }}، {{ s.surahSummary }}</div>
+                  </div>
+                  <div class="duration">{{ s.durationStr }}</div>
+                </div>
+              }
+            } @else {
+              <div class="empty-sessions">لم تقرأ في هذا اليوم</div>
+            }
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
