@@ -27,8 +27,8 @@ export class App {
   // Start loading device data immediately so every screen opens populated.
   private readonly store = inject(ReadingStore);
 
-  /** Phone tab bar: 4 thumb-friendly ergonomic items (RTL: rightmost is HOME). */
-  protected readonly tabs = [HOME, QURAN, AWRAD, CALENDAR];
+  /** Phone tab bar: 5 thumb-friendly ergonomic items (RTL: rightmost is HOME). */
+  protected readonly tabs = [HOME, QURAN, AWRAD, GROUPS, CALENDAR];
   protected readonly sidebar = [HOME, QURAN, AWRAD, GROUPS, CALENDAR, STATS];
 
   protected readonly exactPath: IsActiveMatchOptions = { paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' };
