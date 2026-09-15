@@ -16,10 +16,11 @@ const GROUPS: NavItem = { path: '/groups', label: 'مجموعاتي', icon: 'col
 const AWRAD: NavItem = { path: '/awrad', label: 'الأوراد', icon: 'awrad' };
 const STATS: NavItem = { path: '/stats', label: 'الإحصائيات', icon: 'stats' };
 const CALENDAR: NavItem = { path: '/calendar', label: 'التقويم', icon: 'calendar' };
+import { Account } from './features/account/account';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, Sheet],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, Sheet, Account],
   templateUrl: './app.html',
   styleUrl: './app.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -1,3 +1,10 @@
+.global-account-wrapper {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top, 16px));
+  inset-inline-end: 16px; /* End is left in RTL */
+  z-index: 50;
+}
+
 .content {
   min-height: 100dvh;
   padding-bottom: var(--tabbar-h);
