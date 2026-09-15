@@ -8,7 +8,15 @@
   @media (min-width: 768px) { padding: 36px 56px 40px; gap: 20px; }
 }
 
-.head { display: flex; align-items: center; justify-content: space-between; min-height: 44px; }
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  @media (max-width: 768px) {
+    padding-inline-end: 48px;
+  }
+}
 
 .ghost {
   height: 34px;

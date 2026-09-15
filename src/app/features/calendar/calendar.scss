@@ -30,7 +30,13 @@
 
 /* Header */
 .page-header {
-  display: flex; align-items: center; justify-content: space-between; height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 44px;
+  @media (max-width: 768px) {
+    padding-inline-end: 48px;
+  }
   .header-main-title { display: flex; align-items: center; gap: 14px; }
   .page-title { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.3px; }
   .stats-link-pill {

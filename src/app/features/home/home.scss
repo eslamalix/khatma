@@ -11,7 +11,16 @@
   @media (min-width: 768px) { padding: 48px 32px 40px; gap: 16px; }
 }
 
-.top { padding: 10px 2px 4px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.top {
+  padding: 10px 2px 4px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  @media (max-width: 768px) {
+    padding-inline-end: 48px;
+  }
+}
 .top-text { min-width: 0; }
 .greeting { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.3px; }
 .date { margin: 4px 0 0; font-size: 14px; font-weight: 500; color: var(--ink-2); }

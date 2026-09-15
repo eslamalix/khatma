@@ -3,21 +3,26 @@
   <header class="page-header">
     <div class="header-main">
       <h1 class="page-title">مجموعاتي</h1>
-      <span class="header-badge">{{ summary() }}</span>
-    </div>
-    <div class="header-actions">
-      <button type="button" class="action-btn new-btn" (click)="openNewGroupModal()">
-        <app-icon name="plus" [size]="16" [stroke]="2.2" />
-        <span>مجموعة جديدة</span>
-      </button>
+      <p class="page-subtitle">{{ summary() }}</p>
     </div>
   </header>
 
-  @if (groups().length > 1) {
-    <div class="toolbar-row">
-      <button type="button" class="toolbar-btn" (click)="toggleAll()">{{ allExpanded() ? 'طيّ الكل' : 'فتح الكل' }}</button>
+  <!-- Section Toolbar: Actions directly above the list -->
+  <div class="section-toolbar">
+    <span class="section-label">المجموعات المحفوظة</span>
+    <div class="section-actions">
+      <button type="button" class="tool-btn new-btn" (click)="openNewGroupModal()">
+        <app-icon name="plus" [size]="14" [stroke]="2.4" />
+        <span>مجموعة جديدة</span>
+      </button>
+      @if (groups().length > 1) {
+        <button type="button" class="tool-btn toggle-btn" (click)="toggleAll()">
+          <app-icon [name]="allExpanded() ? 'chevronUp' : 'chevronDown'" [size]="13" [stroke]="2.4" />
+          <span>{{ allExpanded() ? 'طيّ الكل' : 'فتح الكل' }}</span>
+        </button>
+      }
     </div>
-  }
+  </div>
 
   <!-- Groups Accordion List -->
   <div class="groups-list">

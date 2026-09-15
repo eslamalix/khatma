@@ -16,6 +16,9 @@
   display: flex;
   align-items: center;
   height: 44px;
+  @media (max-width: 768px) {
+    padding-inline-end: 48px;
+  }
 
   .page-title {
     margin: 0;

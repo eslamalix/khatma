@@ -63,11 +63,24 @@ import { Sheet } from '../../ui/sheet';
   styles: `
     :host { display: contents; }
     .avatar-btn {
-      flex: none; width: 44px; height: 44px; border-radius: 22px; overflow: hidden;
-      display: grid; place-items: center; background: var(--fill); color: var(--ink-2);
-      img { width: 100%; height: 100%; object-fit: cover; }
+      flex: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      background: var(--fill);
+      color: var(--ink-2);
+      border: 1.5px solid var(--line);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      cursor: pointer;
+      transition: transform 0.15s var(--ease), border-color 0.2s;
+      &:hover { border-color: var(--accent); }
+      &:active { transform: scale(0.94); }
+      img { width: 100%; height: 100%; object-fit: cover; display: block; }
     }
-    .initial { font-size: 18px; font-weight: 700; color: var(--accent); }
+    .initial { font-size: 16px; font-weight: 700; color: var(--accent); }
     .account { display: flex; flex-direction: column; gap: 12px; padding: 8px 0 4px; }
     .lead { margin: 0; font-size: 15.5px; line-height: 1.7; color: var(--ink); }
     .google {

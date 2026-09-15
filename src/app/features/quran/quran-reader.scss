@@ -34,17 +34,42 @@
 .kpis {
   top: 0;
   height: var(--top-h);
-  padding: env(safe-area-inset-top) 12px 0;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: 0;
+  padding-inline-start: 10px;
+  padding-inline-end: 58px; /* Dedicated clearance for the global floating account avatar */
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-around;
   border-bottom: 1px solid var(--line);
 }
-.kpi { flex: 1; max-width: 170px; display: flex; flex-direction: column; align-items: center; gap: 1px; }
-.kpi-label { font-size: 12px; font-weight: 500; color: var(--ink-2); }
-.kpi-value { font-size: 16px; font-weight: 600; white-space: nowrap; }
-.divider { width: 1px; height: 26px; background: var(--line); }
-.kpi-value { display: inline-flex; align-items: center; gap: 3px; }
+.kpi {
+  flex: 1;
+  max-width: 160px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.kpi-label {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.kpi-value {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.divider { width: 1px; height: 24px; background: var(--line); flex: none; }
 .wird-done .kpi-value { color: var(--accent); }
 
 /* Today's wird as a hairline along the bottom of the top bar. */

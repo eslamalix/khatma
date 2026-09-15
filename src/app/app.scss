@@ -1,8 +1,16 @@
 .global-account-wrapper {
   position: absolute;
-  top: max(16px, env(safe-area-inset-top, 16px));
-  inset-inline-end: 16px; /* End is left in RTL */
+  top: calc(env(safe-area-inset-top, 0px) + 20px);
+  inset-inline-end: 18px; /* End is left in RTL */
   z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shell.is-quran .global-account-wrapper {
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  inset-inline-end: 14px;
 }
 
 .content {
