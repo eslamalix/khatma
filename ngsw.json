@@ -1,0 +1,132 @@
+{
+  "configVersion": 1,
+  "timestamp": 1789504172679,
+  "index": "/khatma/index.html",
+  "assetGroups": [
+    {
+      "name": "app",
+      "installMode": "prefetch",
+      "updateMode": "prefetch",
+      "cacheQueryOptions": {
+        "ignoreVary": true
+      },
+      "urls": [
+        "/khatma/chunk-4EWOWKWX.js",
+        "/khatma/chunk-6L6T52RG.js",
+        "/khatma/chunk-7CGTOI24.js",
+        "/khatma/chunk-CS65FDGF.js",
+        "/khatma/chunk-EOCU5IRN.js",
+        "/khatma/chunk-GBB67UZI.js",
+        "/khatma/chunk-HLBC2KSC.js",
+        "/khatma/chunk-IMCKU6ZI.js",
+        "/khatma/chunk-IUK3M5K5.js",
+        "/khatma/chunk-N67BT4MI.js",
+        "/khatma/chunk-OYUZJ6ND.js",
+        "/khatma/chunk-Q3GTGOE5.js",
+        "/khatma/chunk-QXQOYPSE.js",
+        "/khatma/chunk-RIEKSQ4G.js",
+        "/khatma/chunk-UGMQUL55.js",
+        "/khatma/chunk-UYUXN74O.js",
+        "/khatma/chunk-VPM54V54.js",
+        "/khatma/chunk-W5MBONPJ.js",
+        "/khatma/chunk-YFAZVRJT.js",
+        "/khatma/chunk-ZI3R7SFO.js",
+        "/khatma/chunk-ZT7EXJPO.js",
+        "/khatma/favicon.ico",
+        "/khatma/index.html",
+        "/khatma/main-A75BEM42.js",
+        "/khatma/manifest.webmanifest",
+        "/khatma/styles-UQQ4MCFX.css"
+      ],
+      "patterns": []
+    },
+    {
+      "name": "assets",
+      "installMode": "lazy",
+      "updateMode": "prefetch",
+      "cacheQueryOptions": {
+        "ignoreVary": true
+      },
+      "urls": [
+        "/khatma/icons/icon-128x128.png",
+        "/khatma/icons/icon-144x144.png",
+        "/khatma/icons/icon-152x152.png",
+        "/khatma/icons/icon-192x192.png",
+        "/khatma/icons/icon-384x384.png",
+        "/khatma/icons/icon-512x512.png",
+        "/khatma/icons/icon-72x72.png",
+        "/khatma/icons/icon-96x96.png"
+      ],
+      "patterns": []
+    },
+    {
+      "name": "fonts",
+      "installMode": "lazy",
+      "updateMode": "lazy",
+      "cacheQueryOptions": {
+        "ignoreVary": true
+      },
+      "urls": [],
+      "patterns": [
+        "https:\\/\\/fonts\\.googleapis\\.com\\/.*",
+        "https:\\/\\/fonts\\.gstatic\\.com\\/.*"
+      ]
+    }
+  ],
+  "dataGroups": [],
+  "hashTable": {
+    "/khatma/chunk-4EWOWKWX.js": "a452b2fb4c217d1e6e194680a19d903f0433d9ad",
+    "/khatma/chunk-6L6T52RG.js": "784a9f2daf0de2227c8c489bcc3378c659dbf63e",
+    "/khatma/chunk-7CGTOI24.js": "954b4bf8780b6c8d5e5f27a66127bb5e575b53dd",
+    "/khatma/chunk-CS65FDGF.js": "9fb96cf95bf2dd4b33aa1d924d24f2aee13a415b",
+    "/khatma/chunk-EOCU5IRN.js": "953c063af151acd309d56cb94c0d67cf6017e60e",
+    "/khatma/chunk-GBB67UZI.js": "b93e1003388bfa25eecbb0d5a928468c974e5a2b",
+    "/khatma/chunk-HLBC2KSC.js": "0736df217ea49ca7fbff2c61e2a8833c0873d4f5",
+    "/khatma/chunk-IMCKU6ZI.js": "095849de3c9f474a3d0da318791dab7b94872f19",
+    "/khatma/chunk-IUK3M5K5.js": "fe5979674b38fa73ffe1c317e9cd7065febd978f",
+    "/khatma/chunk-N67BT4MI.js": "c74c2fe9b99b6984b771159055de2980852e1df9",
+    "/khatma/chunk-OYUZJ6ND.js": "3755b7272ee953f50d935fcc754d8fffef4d462d",
+    "/khatma/chunk-Q3GTGOE5.js": "5ee77345f0383ef389b9e9db6196f5f9d80df88d",
+    "/khatma/chunk-QXQOYPSE.js": "03e5d5739c77884b2214ac3e417fef40e8038031",
+    "/khatma/chunk-RIEKSQ4G.js": "0a8179c4bd0b27157acc23f9ad15f46f913d27d8",
+    "/khatma/chunk-UGMQUL55.js": "c409aeb7e651dd216b4dc066a17cbd93b938b6d8",
+    "/khatma/chunk-UYUXN74O.js": "6a777b65afb881189d4f39f254d4487f05289e47",
+    "/khatma/chunk-VPM54V54.js": "587e4a476a5e23a9ba4a9dd7ab00e068ab2bd8b2",
+    "/khatma/chunk-W5MBONPJ.js": "2cc8c87cb096340ebb0ccd62b909c2e1c7d39945",
+    "/khatma/chunk-YFAZVRJT.js": "8e8ae3f3da0b653d2ebcaad83e698ac32b52f09b",
+    "/khatma/chunk-ZI3R7SFO.js": "284a984874e1ffa745986df468dbc19db2e43d90",
+    "/khatma/chunk-ZT7EXJPO.js": "964766ae2b5b7bff63e201c76d9ad4532a011952",
+    "/khatma/favicon.ico": "9c39f434fe1261f68c5e3eefdf734630d99c5670",
+    "/khatma/icons/icon-128x128.png": "f912963bdc6d5a38d8f1dd0afbaab2ce8d657acb",
+    "/khatma/icons/icon-144x144.png": "b155fd5f2fd5d2ea7760721063003c4cd95fd783",
+    "/khatma/icons/icon-152x152.png": "eae6e0f0c8afb8aaae339e2a569b43e9238e5e6c",
+    "/khatma/icons/icon-192x192.png": "15c4180454633880d98674aa7394656196c91584",
+    "/khatma/icons/icon-384x384.png": "94a915751ef6c9282df9aea405ad679230631814",
+    "/khatma/icons/icon-512x512.png": "1de182f76f7329dfa8f9fcdd1fdcdd695bea6a99",
+    "/khatma/icons/icon-72x72.png": "aa88a6096bd973be7f6d7a5489bfa6bc2463f8c4",
+    "/khatma/icons/icon-96x96.png": "7fb8f59c30ce2ff12c700321a0b39e14b3dc8f95",
+    "/khatma/index.html": "33f45c4f6f230504629b63ff8fbdd00c0fa2fef8",
+    "/khatma/main-A75BEM42.js": "60203d1a027866131fe4ece409a44576f1b7de23",
+    "/khatma/manifest.webmanifest": "80d27a5fa0dfa76df2335d082fff442e7183b7d9",
+    "/khatma/styles-UQQ4MCFX.css": "b1dbe2365d81a2bd383ad9ceb9d45f2d1f135e51"
+  },
+  "navigationUrls": [
+    {
+      "positive": true,
+      "regex": "^\\/.*$"
+    },
+    {
+      "positive": false,
+      "regex": "^\\/(?:.+\\/)?[^/]*\\.[^/]*$"
+    },
+    {
+      "positive": false,
+      "regex": "^\\/(?:.+\\/)?[^/]*__[^/]*$"
+    },
+    {
+      "positive": false,
+      "regex": "^\\/(?:.+\\/)?[^/]*__[^/]*\\/.*$"
+    }
+  ],
+  "navigationRequestStrategy": "performance"
+}
