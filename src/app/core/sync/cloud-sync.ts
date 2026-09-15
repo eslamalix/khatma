@@ -36,6 +36,7 @@ export interface SyncedDoc<T extends object> {
   name: string;
   read(): { data: T; updatedAt: number };
   apply(data: T, updatedAt: number): void;
+  merge?: (cloudData: T, cloudUpdatedAt: number) => void;
 }
 
 /** For stores that are also constructed directly in unit tests, outside the Angular injector. */
@@ -115,8 +116,12 @@ export class CloudSync {
       const localAt = doc.read().updatedAt;
       
       if (cloud) {
-        if (cloud.updatedAt > localAt) doc.apply(cloud.data, cloud.updatedAt);
-        else if (localAt > cloud.updatedAt) this.flushDoc(name);
+        if (doc.merge) {
+          doc.merge(cloud.data, cloud.updatedAt);
+        } else {
+          if (cloud.updatedAt > localAt) doc.apply(cloud.data, cloud.updatedAt);
+          else if (localAt > cloud.updatedAt) this.flushDoc(name);
+        }
       } else {
         this.flushDoc(name);
       }

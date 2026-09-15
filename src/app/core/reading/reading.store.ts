@@ -48,7 +48,11 @@ export class ReadingStore {
     const reading: Reading = { id: crypto.randomUUID(), khatma: this.state().currentKhatma, synced: 0, ...visit };
     this.readings.update((list) => [...list, reading]);
     if (this.demo) return;
-    await (await localDb()).put('readings', reading);
+    try {
+      await (await localDb()).put('readings', reading);
+    } catch (err) {
+      console.warn('[reading.store] addVisit', err);
+    }
     this.cloud.pushReadings([reading], (ids) => this.markSynced(ids));
   }
 
@@ -79,7 +83,9 @@ export class ReadingStore {
   private patchState(patch: Partial<ReadingState>) {
     this.state.update((s) => ({ ...s, ...patch }));
     if (this.demo) return;
-    localDb().then((db) => db.put('kv', this.state(), STATE_KEY));
+    localDb()
+      .then((db) => db.put('kv', this.state(), STATE_KEY))
+      .catch((err) => console.warn('[reading.store] patchState', err));
     this.cloud.pushState(this.state());
   }
 
@@ -89,38 +95,42 @@ export class ReadingStore {
    */
   private async mergeAccount(account: CloudAccount, isNewHere: boolean) {
     if (this.demo) return;
-    await this.loading;
-    
-    // Always pull the state to ensure the current device knows the latest lastPage.
-    // Only pull readings history if this is a new device to save Firebase Spark quota.
-    const snap = await this.cloud.pull(isNewHere).catch((err) => (console.warn('[sync] pull', err), null));
-    if (!snap) return;
+    try {
+      await this.loading;
+      
+      // Always pull the state to ensure the current device knows the latest lastPage.
+      // Only pull readings history if this is a new device to save Firebase Spark quota.
+      const snap = await this.cloud.pull(isNewHere).catch((err) => (console.warn('[sync] pull', err), null));
+      if (!snap) return;
 
-    if (isNewHere) {
-      const localIds = new Set(this.readings().map((r) => r.id));
-      const incoming = snap.readings.filter((r) => !localIds.has(r.id));
-      if (incoming.length) {
-        this.readings.update((list) => [...list, ...incoming].sort((a, b) => a.endAt - b.endAt));
-        const db = await localDb();
-        const tx = db.transaction('readings', 'readwrite');
-        for (const r of incoming) tx.store.put(r);
-        await tx.done;
+      if (isNewHere) {
+        const localIds = new Set(this.readings().map((r) => r.id));
+        const incoming = snap.readings.filter((r) => !localIds.has(r.id));
+        if (incoming.length) {
+          this.readings.update((list) => [...list, ...incoming].sort((a, b) => a.endAt - b.endAt));
+          const db = await localDb();
+          const tx = db.transaction('readings', 'readwrite');
+          for (const r of incoming) tx.store.put(r);
+          await tx.done;
+        }
+
+        const cloudIds = new Set(snap.readings.map((r) => r.id));
+        const missing = this.readings().filter((r) => !cloudIds.has(r.id));
+        if (missing.length) this.cloud.pushReadings(missing, (ids) => this.markSynced(ids));
+        console.info(`[sync] merged account ${account.uid}: +${incoming.length} here, +${missing.length} there`);
+      } else {
+        console.info(`[sync] verified account ${account.uid}`);
       }
 
-      const cloudIds = new Set(snap.readings.map((r) => r.id));
-      const missing = this.readings().filter((r) => !cloudIds.has(r.id));
-      if (missing.length) this.cloud.pushReadings(missing, (ids) => this.markSynced(ids));
-      console.info(`[sync] merged account ${account.uid}: +${incoming.length} here, +${missing.length} there`);
-    } else {
-      console.info(`[sync] verified account ${account.uid}`);
-    }
-
-    const cloudState = snap.state;
-    if (cloudState && (cloudState.lastReadAt ?? 0) > (this.state().lastReadAt ?? 0)) {
-      this.state.update((s) => ({ ...s, ...cloudState }));
-      (await localDb()).put('kv', this.state(), STATE_KEY);
-    } else if (isNewHere) {
-      this.cloud.pushState(this.state());
+      const cloudState = snap.state;
+      if (cloudState && (cloudState.lastReadAt ?? 0) > (this.state().lastReadAt ?? 0)) {
+        this.state.update((s) => ({ ...s, ...cloudState }));
+        await (await localDb()).put('kv', this.state(), STATE_KEY);
+      } else if (isNewHere) {
+        this.cloud.pushState(this.state());
+      }
+    } catch (err) {
+      console.warn('[reading.store] mergeAccount', err);
     }
   }
 
@@ -144,9 +154,13 @@ export class ReadingStore {
   private async markSynced(ids: string[]) {
     const set = new Set(ids);
     this.readings.update((list) => list.map((r) => (set.has(r.id) ? { ...r, synced: 1 } : r)));
-    const db = await localDb();
-    const tx = db.transaction('readings', 'readwrite');
-    for (const r of this.readings()) if (set.has(r.id)) tx.store.put(r);
-    await tx.done;
+    try {
+      const db = await localDb();
+      const tx = db.transaction('readings', 'readwrite');
+      for (const r of this.readings()) if (set.has(r.id)) tx.store.put(r);
+      await tx.done;
+    } catch (err) {
+      console.warn('[reading.store] markSynced', err);
+    }
   }
 }

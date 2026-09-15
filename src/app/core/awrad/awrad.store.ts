@@ -19,6 +19,40 @@ export class AwradStore {
         this.groups.set(data.groups);
         this.saveGroups(updatedAt);
       },
+      merge: (cloudData, cloudUpdatedAt) => {
+        if (!Array.isArray(cloudData.groups)) return;
+        if (this.updatedAt() === cloudUpdatedAt) return;
+        
+        const localGroups = [...this.groups()];
+        let changed = false;
+
+        for (const cg of cloudData.groups) {
+          const lgIndex = localGroups.findIndex((g) => g.id === cg.id);
+          if (lgIndex < 0) {
+            localGroups.push(cg);
+            changed = true;
+          } else {
+            const lg = localGroups[lgIndex];
+            const mergedPassages = [...lg.passages];
+            let passagesChanged = false;
+            for (const cp of cg.passages) {
+              if (!mergedPassages.find((p) => p.id === cp.id)) {
+                mergedPassages.push(cp);
+                passagesChanged = true;
+              }
+            }
+            if (passagesChanged) {
+              localGroups[lgIndex] = { ...lg, passages: mergedPassages };
+              changed = true;
+            }
+          }
+        }
+
+        if (changed || cloudUpdatedAt > this.updatedAt()) {
+          this.groups.set(localGroups);
+          this.saveGroups();
+        }
+      },
     });
   }
 
