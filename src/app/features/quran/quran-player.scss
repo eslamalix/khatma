@@ -106,7 +106,23 @@
   @media (hover: hover) { &:hover { background: var(--accent-strong); } }
 }
 
-.ctl.close { width: 32px; color: var(--ink-3); }
+.ctl.close { 
+  width: 32px; 
+  color: var(--ink-3); 
+  margin-inline-end: 12px;
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: -6px; /* middle of the 12px margin */
+    top: 50%;
+    transform: translateY(-50%);
+    height: 18px;
+    width: 1px;
+    background: var(--line);
+  }
+}
 
 /* Spinner ring around the play button, only when an ayah takes a while to load (not on every ayah change). */
 .busy { position: relative; }
