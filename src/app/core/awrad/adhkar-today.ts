@@ -1,4 +1,5 @@
 import { Injectable, signal } from '@angular/core';
+import { CloudSync, injectOptional } from '../sync/cloud-sync';
 import { toDateStr } from '../calendar/calendar-data';
 import { AdhkarCategory } from './awrad-data';
 
@@ -18,6 +19,20 @@ export function adhkarPeriodAt(date = new Date()): AdhkarPeriod | null {
 @Injectable({ providedIn: 'root' })
 export class AdhkarToday {
   readonly doneToday = signal<ReadonlySet<string>>(this.load());
+  private readonly cloud = injectOptional(CloudSync);
+
+  constructor() {
+    this.cloud?.registerDoc<{ date: string; ids: string[] }>({
+      name: 'adhkar',
+      read: () => ({ data: { date: toDateStr(new Date()), ids: [...this.doneToday()] }, updatedAt: this.savedAt() }),
+      apply: (data) => {
+        if (data.date !== toDateStr(new Date()) || !Array.isArray(data.ids)) return;
+        const merged = new Set([...this.doneToday(), ...data.ids]);
+        this.doneToday.set(merged);
+        this.save(merged, false);
+      },
+    });
+  }
 
   periodNow() {
     return adhkarPeriodAt();
@@ -31,10 +46,23 @@ export class AdhkarToday {
     if (this.isDone(id)) return;
     const next = new Set(this.doneToday()).add(id);
     this.doneToday.set(next);
+    this.save(next, true);
+  }
+
+  private save(ids: ReadonlySet<string>, upload: boolean) {
     try {
-      localStorage.setItem(ADHKAR_DONE_KEY, JSON.stringify({ date: toDateStr(new Date()), ids: [...next] }));
+      localStorage.setItem(ADHKAR_DONE_KEY, JSON.stringify({ date: toDateStr(new Date()), ids: [...ids], at: Date.now() }));
     } catch {
       // Not remembered; still shown as done for this visit.
+    }
+    if (upload) this.cloud?.touchDoc('adhkar');
+  }
+
+  private savedAt(): number {
+    try {
+      return (JSON.parse(localStorage.getItem(ADHKAR_DONE_KEY) ?? 'null') as { at?: number } | null)?.at ?? 0;
+    } catch {
+      return 0;
     }
   }
 

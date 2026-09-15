@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { inject, Injectable, ProviderToken, signal } from '@angular/core';
 import type { Auth, User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
 import { environment } from '../../../environments/environment';
@@ -28,6 +28,28 @@ interface Session {
   authMod: typeof import('firebase/auth');
 }
 
+/**
+ * A small piece of device data kept as one document (`users/{uid}/profile/{name}`), e.g. ayah groups.
+ * On a new account the newer copy wins by `updatedAt`.
+ */
+export interface SyncedDoc<T extends object> {
+  name: string;
+  read(): { data: T; updatedAt: number };
+  apply(data: T, updatedAt: number): void;
+}
+
+/** For stores that are also constructed directly in unit tests, outside the Angular injector. */
+export function injectOptional<T>(token: ProviderToken<T>): T | null {
+  try {
+    return inject(token);
+  } catch {
+    return null;
+  }
+}
+
+const DOC_DEBOUNCE_MS = 3_000;
+const DOC_PULLED_PREFIX = 'khatma.cloud.doc.';
+
 /** Firestore allows 500 writes per batch. */
 const BATCH_LIMIT = 450;
 /** Page turns update the reading position; coalesce them so a reading session costs a handful of writes. */
@@ -50,6 +72,59 @@ export class CloudSync {
   private accountListener: ((account: CloudAccount, isNewHere: boolean) => void) | null = null;
   private stateTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingState: ReadingState | null = null;
+  private readonly docs = new Map<string, SyncedDoc<object>>();
+  private readonly docTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  /** Keep a device document in the cloud; merged once per account per device, pushed after every change. */
+  registerDoc<T extends object>(doc: SyncedDoc<T>) {
+    this.docs.set(doc.name, doc as unknown as SyncedDoc<object>);
+    const account = this.account();
+    if (account) void this.mergeDoc(doc.name, account);
+  }
+
+  /** The document changed on this device: upload it shortly. */
+  touchDoc(name: string) {
+    const existing = this.docTimers.get(name);
+    if (existing) clearTimeout(existing);
+    this.docTimers.set(name, setTimeout(() => this.flushDoc(name), DOC_DEBOUNCE_MS));
+  }
+
+  private flushDoc(name: string) {
+    const timer = this.docTimers.get(name);
+    if (timer) clearTimeout(timer);
+    this.docTimers.delete(name);
+    const doc = this.docs.get(name);
+    if (!doc) return;
+    const { data, updatedAt } = doc.read();
+    this.session
+      .then((s) => {
+        const uid = s?.auth.currentUser?.uid;
+        if (!s || !uid) return;
+        return s.fs.setDoc(s.fs.doc(s.db, 'users', uid, 'profile', name), { data: JSON.parse(JSON.stringify(data)), updatedAt });
+      })
+      .catch((err) => console.warn(`[sync] ${name}`, err));
+  }
+
+  private async mergeDoc(name: string, account: CloudAccount) {
+    const key = DOC_PULLED_PREFIX + name;
+    try {
+      if (account.anonymous || localStorage.getItem(key) === account.uid) return;
+    } catch {
+      return;
+    }
+    const s = await this.session;
+    const doc = this.docs.get(name);
+    if (!s || !doc || s.auth.currentUser?.uid !== account.uid) return;
+    try {
+      const snap = await s.fs.getDoc(s.fs.doc(s.db, 'users', account.uid, 'profile', name));
+      const cloud = snap.data() as { data: object; updatedAt: number } | undefined;
+      if (cloud && cloud.updatedAt > doc.read().updatedAt) doc.apply(cloud.data, cloud.updatedAt);
+      else this.flushDoc(name);
+      localStorage.setItem(key, account.uid);
+    } catch (err) {
+      console.warn(`[sync] merge ${name}`, err);
+    }
+  }
 
   /** Called once an account is known, and again whenever it changes (sign-in, sign-out). */
   onAccount(listener: (account: CloudAccount, isNewHere: boolean) => void) {
@@ -204,7 +279,12 @@ export class CloudSync {
       authMod.onAuthStateChanged(auth, (user) => this.setAccount(user));
       if (!auth.currentUser) await authMod.signInAnonymously(auth);
       this.status.set('ready');
-      if (typeof window !== 'undefined') window.addEventListener('pagehide', () => this.flushState());
+      if (typeof window !== 'undefined') {
+        window.addEventListener('pagehide', () => {
+          this.flushState();
+          for (const name of [...this.docTimers.keys()]) this.flushDoc(name);
+        });
+      }
       return { db, fs, auth, authMod };
     } catch (err) {
       console.warn('[sync] unavailable, staying device-only', err);
@@ -225,7 +305,10 @@ export class CloudSync {
     };
     const prev = this.account();
     this.account.set(next);
-    if (prev?.uid !== next.uid || prev?.anonymous !== next.anonymous) this.accountListener?.(next, this.isNewHere(next));
+    if (prev?.uid !== next.uid || prev?.anonymous !== next.anonymous) {
+      this.accountListener?.(next, this.isNewHere(next));
+      for (const name of this.docs.keys()) void this.mergeDoc(name, next);
+    }
   }
 
   /** A permanent account this device has not downloaded yet. */

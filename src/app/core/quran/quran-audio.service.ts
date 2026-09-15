@@ -1,4 +1,5 @@
 import { computed, Injectable, signal } from '@angular/core';
+import { CloudSync, injectOptional } from '../sync/cloud-sync';
 import { ar } from '../format';
 import { AyahRef, compareAyah, nextAyah, prevAyah, surahName } from './quran-meta';
 
@@ -65,6 +66,7 @@ interface Prefs {
   reciterId: string;
   rate: PlaybackRate;
   repeat: AyahRepeat;
+  at?: number;
 }
 
 /**
@@ -93,8 +95,18 @@ export class QuranAudioService {
   readonly isActive = computed(() => this.status() !== 'idle');
   readonly isBoundedRange = computed(() => !!this.range()?.to);
 
+  private readonly cloud = injectOptional(CloudSync);
+
   constructor() {
     this.restorePrefs();
+    this.cloud?.registerDoc<Prefs>({
+      name: 'audio',
+      read: () => ({ data: this.currentPrefs(), updatedAt: this.savedAt() }),
+      apply: (data, updatedAt) => {
+        this.applyPrefs(data);
+        this.writePrefs(updatedAt);
+      },
+    });
     const a = this.audio;
     if (!a) return;
     a.preload = 'auto';
@@ -275,22 +287,44 @@ export class QuranAudioService {
   private restorePrefs() {
     try {
       const saved = JSON.parse(localStorage.getItem(PREFS_KEY) ?? 'null') as Partial<Prefs> | null;
-      if (!saved) return;
-      const reciter = RECITERS.find((r) => r.id === saved.reciterId);
-      if (reciter) this.reciter.set(reciter);
-      if (PLAYBACK_RATES.includes(saved.rate as PlaybackRate)) this.rate.set(saved.rate as PlaybackRate);
-      if (AYAH_REPEATS.includes(saved.repeat as AyahRepeat)) this.repeat.set(saved.repeat as AyahRepeat);
+      if (saved) this.applyPrefs(saved);
     } catch {
       // Private mode or corrupt value: defaults are fine.
     }
   }
 
-  private savePrefs() {
+  private applyPrefs(saved: Partial<Prefs>) {
+    const reciter = RECITERS.find((r) => r.id === saved.reciterId);
+    if (reciter) this.reciter.set(reciter);
+    if (PLAYBACK_RATES.includes(saved.rate as PlaybackRate)) {
+      this.rate.set(saved.rate as PlaybackRate);
+      if (this.audio) this.audio.defaultPlaybackRate = this.audio.playbackRate = this.rate();
+    }
+    if (AYAH_REPEATS.includes(saved.repeat as AyahRepeat)) this.repeat.set(saved.repeat as AyahRepeat);
+  }
+
+  private currentPrefs(): Prefs {
+    return { reciterId: this.reciter().id, rate: this.rate(), repeat: this.repeat() };
+  }
+
+  private savedAt(): number {
     try {
-      const prefs: Prefs = { reciterId: this.reciter().id, rate: this.rate(), repeat: this.repeat() };
-      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+      return (JSON.parse(localStorage.getItem(PREFS_KEY) ?? 'null') as Prefs | null)?.at ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  private writePrefs(at: number) {
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify({ ...this.currentPrefs(), at }));
     } catch {
       // Not persisted; the choice still applies for this session.
     }
+  }
+
+  private savePrefs() {
+    this.writePrefs(Date.now());
+    this.cloud?.touchDoc('audio');
   }
 }

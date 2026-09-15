@@ -40,7 +40,8 @@ Rules kept from design review: Arabic comma instead of `·` next to Arabic digit
 Done from the CLI (`npm i -g firebase-tools`, `firebase login` as the owner account):
 - Auth providers from `firebase.json` → `auth.providers` (anonymous + Google, `firebase deploy --only auth`). Authorized domains: firebaseapp, web.app, `eslamalix.github.io`, `localhost` (added with firebase-tools `gcp/auth` `updateAuthDomains`; add any new domain the same way).
 - Stay on the free Spark plan (owner requirement): no Cloud Functions or other Blaze features.
-- Firestore `(default)` database, Standard edition, location **nam5** (created automatically by the first `firestore:rules` deploy; location is permanent, acceptable because sync is offline-first and batched).
+- Firestore `(default)` database, Standard edition, location **eur3** (recreated there on 2026-09-15; `firestore:databases:create` must run before the first rules deploy or the deploy creates it in nam5).
+- Synced per user: `readings/*`, `profile/state`, `status/public`, and device documents `profile/groups`, `profile/adhkar`, `profile/audio` (CloudSync.registerDoc; newest `updatedAt` wins on a new account).
 - `firestore.rules` deployed; verified: a user can write `users/{own uid}/…`, another uid is rejected (403).
 - Verified on https://eslamalix.github.io/quraanApp/: anonymous sign-in and `users/{uid}/status/public` written.
 

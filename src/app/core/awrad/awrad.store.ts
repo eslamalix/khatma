@@ -1,11 +1,26 @@
 import { Injectable, signal } from '@angular/core';
+import { CloudSync, injectOptional } from '../sync/cloud-sync';
 import { AyahGroup, BUILTIN_GROUPS, GroupPassage } from './awrad-data';
 
 const GROUPS_STORAGE_KEY = 'quran_kpi_groups';
+const GROUPS_UPDATED_KEY = 'quran_kpi_groups_updated';
 
 @Injectable({ providedIn: 'root' })
 export class AwradStore {
   readonly groups = signal<AyahGroup[]>(this.loadGroups());
+  private readonly cloud = injectOptional(CloudSync);
+
+  constructor() {
+    this.cloud?.registerDoc<{ groups: AyahGroup[] }>({
+      name: 'groups',
+      read: () => ({ data: { groups: this.groups() }, updatedAt: this.updatedAt() }),
+      apply: (data, updatedAt) => {
+        if (!Array.isArray(data.groups)) return;
+        this.groups.set(data.groups);
+        this.saveGroups(updatedAt);
+      },
+    });
+  }
 
   addGroup(title: string, description = 'مجموعة مخصصة', icon: 'shield' | 'leaf' = 'shield'): AyahGroup {
     const trimmed = title.trim();
@@ -134,13 +149,24 @@ export class AwradStore {
     return [...BUILTIN_GROUPS];
   }
 
-  private saveGroups(): void {
+  /** `fromCloud` carries the cloud copy timestamp; a local change stamps now and uploads. */
+  private saveGroups(fromCloud?: number): void {
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify(this.groups()));
+        localStorage.setItem(GROUPS_UPDATED_KEY, String(fromCloud ?? Date.now()));
       }
     } catch {
       // Ignore quota errors
+    }
+    if (fromCloud === undefined) this.cloud?.touchDoc('groups');
+  }
+
+  private updatedAt(): number {
+    try {
+      return Number(localStorage.getItem(GROUPS_UPDATED_KEY)) || 0;
+    } catch {
+      return 0;
     }
   }
 }
