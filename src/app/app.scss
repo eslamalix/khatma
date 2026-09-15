@@ -90,3 +90,27 @@
   .brand-name { display: inline; font-size: 17px; font-weight: 700; }
   .side-link { justify-content: flex-start; height: 42px; padding: 0 12px; span { display: inline; } }
 }
+
+/* More Menu (Bottom Sheet) */
+.more-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 52px;
+  padding: 0 16px;
+  border-radius: 12px;
+  color: var(--ink-2);
+  font-size: 16px;
+  font-weight: 500;
+  background: var(--fill);
+  transition: background 0.2s var(--ease), transform 0.15s var(--ease);
+  text-decoration: none;
+  &:hover { background: color-mix(in srgb, var(--fill) 85%, var(--ink) 15%); }
+  &:active { transform: scale(0.98); }
+}

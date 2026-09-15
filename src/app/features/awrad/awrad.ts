@@ -49,11 +49,10 @@ export class Awrad {
   );
 
   // Adhkar
+  private readonly adhkarToday = inject(AdhkarToday);
   readonly adhkarCategories = signal<readonly AdhkarCategory[]>(BUILTIN_ADHKAR);
   readonly activeAdhkar = signal<AdhkarCategory | null>(null);
   readonly adhkarSheetOpen = signal<boolean>(false);
-  readonly adhkarCounts = signal<Record<string, number>>({});
-  private readonly adhkarToday = inject(AdhkarToday);
   protected readonly periodNow = this.adhkarToday.periodNow();
   /** Adhkar categories completed today, remembered on this device. */
   readonly doneToday = this.adhkarToday.doneToday;
@@ -124,13 +123,25 @@ export class Awrad {
   openAdhkar(category: AdhkarCategory) {
     // Already finished today: show it as finished rather than starting from zero.
     if (this.doneToday().has(category.id)) {
-      this.adhkarCounts.update((map) => ({
-        ...map,
+      const currentCounts = this.adhkarToday.countsToday();
+      this.adhkarToday.saveCounts({
+        ...currentCounts,
         ...Object.fromEntries(category.items.map((i) => [i.id, i.targetRepeat])),
-      }));
+      });
     }
     this.activeAdhkar.set(category);
     this.adhkarSheetOpen.set(true);
+    
+    // Auto-scroll to the first unfinished dhikr
+    setTimeout(() => {
+      if (typeof document === 'undefined') return;
+      const counts = this.adhkarToday.countsToday();
+      const firstUnfinished = category.items.find(i => (counts[i.id] || 0) < i.targetRepeat);
+      if (firstUnfinished) {
+        const el = document.getElementById('dhikr-' + firstUnfinished.id);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 150);
   }
 
   closeAdhkar() {
@@ -138,12 +149,13 @@ export class Awrad {
   }
 
   incrementAdhkar(itemId: string, target: number) {
-    const cur = this.adhkarCounts()[itemId] ?? 0;
+    const counts = this.adhkarToday.countsToday();
+    const cur = counts[itemId] ?? 0;
     if (cur < target) {
       if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
         navigator.vibrate(15);
       }
-      this.adhkarCounts.update((map) => ({ ...map, [itemId]: cur + 1 }));
+      this.adhkarToday.saveCounts({ ...counts, [itemId]: cur + 1 });
       this.checkAdhkarDone();
     }
   }
@@ -157,6 +169,6 @@ export class Awrad {
   }
 
   getAdhkarCount(id: string): number {
-    return this.adhkarCounts()[id] || 0;
+    return this.adhkarToday.countsToday()[id] || 0;
   }
 }

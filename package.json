@@ -7,7 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "publish-app": "npm version patch && git push && git push --tags && npx ng build --base-href /quraanApp/ && node -e \"require('fs').copyFileSync('dist/quran-kpi/browser/index.html', 'dist/quran-kpi/browser/404.html'); require('fs').writeFileSync('dist/quran-kpi/browser/.nojekyll', '')\" && npx -y angular-cli-ghpages --dir=dist/quran-kpi/browser"
+    "publish-app": "npm version patch && git push && git push --tags && npx ng build --base-href /khatma/ && node -e \"require('fs').copyFileSync('dist/quran-kpi/browser/index.html', 'dist/quran-kpi/browser/404.html'); require('fs').writeFileSync('dist/quran-kpi/browser/.nojekyll', '')\" && npx -y angular-cli-ghpages --dir=dist/quran-kpi/browser"
   },
   "prettier": {
     "printWidth": 100,

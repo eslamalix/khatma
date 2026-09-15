@@ -212,7 +212,7 @@
       <div class="sheet-desc">{{ cat.timeLabel }}</div>
       <div class="adhkar-list">
         @for (item of cat.items; track item.id) {
-          <div class="dhikr-card">
+          <div class="dhikr-card" [id]="'dhikr-' + item.id">
             <p class="dhikr-text q">{{ item.text }}</p>
             @if (item.virtue) {
               <div class="dhikr-virtue">{{ item.virtue }}</div>

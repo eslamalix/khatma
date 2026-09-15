@@ -25,5 +25,22 @@
         <span>{{ item.label }}</span>
       </a>
     }
+    <button class="tab" type="button" (click)="moreOpen.set(true)">
+      <app-icon name="more" [size]="25" [stroke]="1.7" />
+      <span>المزيد</span>
+    </button>
   </nav>
+
+  <app-sheet [open]="moreOpen()" (closed)="moreOpen.set(false)" title="المزيد">
+    <div class="more-menu">
+      <a routerLink="/calendar" class="menu-item" (click)="moreOpen.set(false)">
+        <app-icon name="calendar" [size]="22" [stroke]="1.7" />
+        <span>التقويم</span>
+      </a>
+      <a routerLink="/stats" class="menu-item" (click)="moreOpen.set(false)">
+        <app-icon name="stats" [size]="22" [stroke]="1.7" />
+        <span>الإحصائيات</span>
+      </a>
+    </div>
+  </app-sheet>
 </div>

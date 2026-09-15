@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { IsActiveMatchOptions, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Icon, IconName } from './ui/icon';
+import { Sheet } from './ui/sheet';
 import { ReadingStore } from './core/reading/reading.store';
 
 interface NavItem {
@@ -18,7 +19,7 @@ const CALENDAR: NavItem = { path: '/calendar', label: 'التقويم', icon: 'c
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, Sheet],
   templateUrl: './app.html',
   styleUrl: './app.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -26,9 +27,11 @@ const CALENDAR: NavItem = { path: '/calendar', label: 'التقويم', icon: 'c
 export class App {
   // Start loading device data immediately so every screen opens populated.
   private readonly store = inject(ReadingStore);
+  
+  readonly moreOpen = signal(false);
 
   /** Phone tab bar: 5 thumb-friendly ergonomic items (RTL: rightmost is HOME). */
-  protected readonly tabs = [HOME, QURAN, AWRAD, GROUPS, CALENDAR];
+  protected readonly tabs = [HOME, QURAN, AWRAD, GROUPS];
   protected readonly sidebar = [HOME, QURAN, AWRAD, GROUPS, CALENDAR, STATS];
 
   protected readonly exactPath: IsActiveMatchOptions = { paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' };
