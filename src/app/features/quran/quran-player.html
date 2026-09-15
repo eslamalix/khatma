@@ -1,5 +1,8 @@
 <div class="mini" role="region" aria-label="مشغل التلاوة">
   <div class="controls">
+    <button type="button" class="ctl close" (click)="audio.stop()" aria-label="إنهاء التلاوة">
+      <app-icon name="close" [size]="14" [stroke]="2.2" />
+    </button>
     <button type="button" class="ctl" (click)="audio.prev()" aria-label="الآية السابقة">
       <app-icon name="skipRight" [size]="20" />
     </button>
@@ -15,9 +18,6 @@
     </button>
     <button type="button" class="ctl" (click)="audio.next()" aria-label="الآية التالية">
       <app-icon name="skipLeft" [size]="20" />
-    </button>
-    <button type="button" class="ctl close" (click)="audio.stop()" aria-label="إنهاء التلاوة">
-      <app-icon name="close" [size]="14" [stroke]="2.2" />
     </button>
   </div>
 
