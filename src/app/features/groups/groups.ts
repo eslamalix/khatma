@@ -27,8 +27,8 @@ export class Groups {
   readonly groups = this.awradStore.groups;
 
   // Accordion state: Set of expanded group IDs.
-  // Initially open the first group by default so the user immediately sees the drop-down content.
-  readonly expandedGroupIds = signal<Set<string>>(new Set(['tahseen']));
+  // Initially all groups are closed by default.
+  readonly expandedGroupIds = signal<Set<string>>(new Set());
 
   // Passages repetition counter
   readonly passageCounts = signal<Record<string, number>>({});

@@ -47,8 +47,7 @@ export function injectOptional<T>(token: ProviderToken<T>): T | null {
   }
 }
 
-const DOC_DEBOUNCE_MS = 3_000;
-const DOC_PULLED_PREFIX = 'khatma.cloud.doc.';
+const DOC_DEBOUNCE_MS = 100;
 
 /** Firestore allows 500 writes per batch. */
 const BATCH_LIMIT = 450;
@@ -106,21 +105,21 @@ export class CloudSync {
   }
 
   private async mergeDoc(name: string, account: CloudAccount) {
-    const key = DOC_PULLED_PREFIX + name;
-    try {
-      if (account.anonymous || localStorage.getItem(key) === account.uid) return;
-    } catch {
-      return;
-    }
+    if (account.anonymous) return;
     const s = await this.session;
     const doc = this.docs.get(name);
     if (!s || !doc || s.auth.currentUser?.uid !== account.uid) return;
     try {
       const snap = await s.fs.getDoc(s.fs.doc(s.db, 'users', account.uid, 'profile', name));
       const cloud = snap.data() as { data: object; updatedAt: number } | undefined;
-      if (cloud && cloud.updatedAt > doc.read().updatedAt) doc.apply(cloud.data, cloud.updatedAt);
-      else this.flushDoc(name);
-      localStorage.setItem(key, account.uid);
+      const localAt = doc.read().updatedAt;
+      
+      if (cloud) {
+        if (cloud.updatedAt > localAt) doc.apply(cloud.data, cloud.updatedAt);
+        else if (localAt > cloud.updatedAt) this.flushDoc(name);
+      } else {
+        this.flushDoc(name);
+      }
     } catch (err) {
       console.warn(`[sync] merge ${name}`, err);
     }
@@ -181,17 +180,18 @@ export class CloudSync {
   }
 
   /** Everything stored for the signed-in account. */
-  async pull(): Promise<CloudSnapshot | null> {
+  async pull(includeReadings = true): Promise<CloudSnapshot | null> {
     const s = await this.session;
     const uid = s?.auth.currentUser?.uid;
     if (!s || !uid) return null;
+    
     const [readings, state] = await Promise.all([
-      s.fs.getDocs(s.fs.collection(s.db, 'users', uid, 'readings')),
+      includeReadings ? s.fs.getDocs(s.fs.collection(s.db, 'users', uid, 'readings')) : Promise.resolve({ docs: [] }),
       s.fs.getDoc(s.fs.doc(s.db, 'users', uid, 'profile', 'state')),
     ]);
     this.markPulled(uid);
     return {
-      readings: readings.docs.map((d) => ({ ...(d.data() as Omit<Reading, 'synced'>), synced: 1 as const })),
+      readings: includeReadings ? readings.docs.map((d) => ({ ...(d.data() as Omit<Reading, 'synced'>), synced: 1 as const })) : [],
       state: (state.data() as Partial<ReadingState> | undefined) ?? null,
     };
   }

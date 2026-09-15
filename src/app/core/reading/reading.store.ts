@@ -88,33 +88,40 @@ export class ReadingStore {
    * add what is missing here, upload what is missing there, and keep whichever reading position is newer.
    */
   private async mergeAccount(account: CloudAccount, isNewHere: boolean) {
-    if (this.demo || !isNewHere) return;
+    if (this.demo) return;
     await this.loading;
-    const snap = await this.cloud.pull().catch((err) => (console.warn('[sync] pull', err), null));
+    
+    // Always pull the state to ensure the current device knows the latest lastPage.
+    // Only pull readings history if this is a new device to save Firebase Spark quota.
+    const snap = await this.cloud.pull(isNewHere).catch((err) => (console.warn('[sync] pull', err), null));
     if (!snap) return;
 
-    const localIds = new Set(this.readings().map((r) => r.id));
-    const incoming = snap.readings.filter((r) => !localIds.has(r.id));
-    if (incoming.length) {
-      this.readings.update((list) => [...list, ...incoming].sort((a, b) => a.endAt - b.endAt));
-      const db = await localDb();
-      const tx = db.transaction('readings', 'readwrite');
-      for (const r of incoming) tx.store.put(r);
-      await tx.done;
-    }
+    if (isNewHere) {
+      const localIds = new Set(this.readings().map((r) => r.id));
+      const incoming = snap.readings.filter((r) => !localIds.has(r.id));
+      if (incoming.length) {
+        this.readings.update((list) => [...list, ...incoming].sort((a, b) => a.endAt - b.endAt));
+        const db = await localDb();
+        const tx = db.transaction('readings', 'readwrite');
+        for (const r of incoming) tx.store.put(r);
+        await tx.done;
+      }
 
-    const cloudIds = new Set(snap.readings.map((r) => r.id));
-    const missing = this.readings().filter((r) => !cloudIds.has(r.id));
-    if (missing.length) this.cloud.pushReadings(missing, (ids) => this.markSynced(ids));
+      const cloudIds = new Set(snap.readings.map((r) => r.id));
+      const missing = this.readings().filter((r) => !cloudIds.has(r.id));
+      if (missing.length) this.cloud.pushReadings(missing, (ids) => this.markSynced(ids));
+      console.info(`[sync] merged account ${account.uid}: +${incoming.length} here, +${missing.length} there`);
+    } else {
+      console.info(`[sync] verified account ${account.uid}`);
+    }
 
     const cloudState = snap.state;
     if (cloudState && (cloudState.lastReadAt ?? 0) > (this.state().lastReadAt ?? 0)) {
       this.state.update((s) => ({ ...s, ...cloudState }));
       (await localDb()).put('kv', this.state(), STATE_KEY);
-    } else {
+    } else if (isNewHere) {
       this.cloud.pushState(this.state());
     }
-    console.info(`[sync] merged account ${account.uid}: +${incoming.length} here, +${missing.length} there`);
   }
 
   private async load() {
