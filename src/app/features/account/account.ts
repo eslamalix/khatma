@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { CloudSync } from '../../core/sync/cloud-sync';
+import packageJson from '../../../../package.json';
 import { Icon } from '../../ui/icon';
 import { Sheet } from '../../ui/sheet';
 
@@ -55,6 +56,7 @@ import { Sheet } from '../../ui/sheet';
         @if (error()) {
           <p class="error" role="alert">{{ error() }}</p>
         }
+        <p class="fine version-text" dir="ltr" style="text-align: center; margin-top: 2rem; opacity: 0.5;">v{{ version }}</p>
       </div>
     </app-sheet>
   `,
