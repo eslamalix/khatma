@@ -1,12 +1,4 @@
 <div class="mini" role="region" aria-label="مشغل التلاوة">
-  <button type="button" class="info" (click)="open()" aria-label="تفاصيل التلاوة">
-    <span class="eq" [class.on]="audio.isPlaying()" aria-hidden="true"><i></i><i></i><i></i></span>
-    <span class="text">
-      <span class="title">{{ title() }}</span>
-      <span class="sub">{{ subtitle() }}</span>
-    </span>
-  </button>
-
   <div class="controls">
     <button type="button" class="ctl" (click)="audio.prev()" aria-label="الآية السابقة">
       <app-icon name="skipRight" [size]="20" />
@@ -28,6 +20,14 @@
       <app-icon name="close" [size]="14" [stroke]="2.2" />
     </button>
   </div>
+
+  <button type="button" class="info" (click)="open()" aria-label="تفاصيل التلاوة">
+    <span class="eq" [class.on]="audio.isPlaying()" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span class="text">
+      <span class="title">{{ title() }}</span>
+      <span class="sub">{{ subtitle() }}</span>
+    </span>
+  </button>
 
   <span class="progress" aria-hidden="true"><span [style.transform]="'scaleX(' + audio.progress() + ')'"></span></span>
 </div>
