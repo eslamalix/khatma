@@ -4,36 +4,47 @@
   margin-inline-start: var(--sidebar-w);
 }
 
-/* Phone: bottom tab bar */
+/* Phone: bottom tab bar — 4 ergonomic destinations */
 .tabbar {
   position: fixed;
   inset-inline: 0;
   bottom: 0;
   z-index: 20;
   height: var(--tabbar-h);
-  padding: 6px 8px env(safe-area-inset-bottom);
+  padding: 6px 12px env(safe-area-inset-bottom);
   display: flex;
   justify-content: space-around;
-  align-items: flex-start;
+  align-items: center;
   background: var(--chrome);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border-top: 1px solid var(--line);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.03);
   transition: transform 0.35s var(--ease);
 }
 
 .tab {
-  width: 66px;
-  height: 50px;
+  flex: 1;
+  max-width: 86px;
+  min-width: 0;
+  height: 52px;
+  border-radius: 14px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 3px;
-  color: #8e8a82;
-  font-size: 10.5px;
+  color: var(--ink-3);
+  font-size: 11px;
   font-weight: 500;
-  &.active { color: var(--accent); font-weight: 600; }
+  white-space: nowrap;
+  transition: color 0.2s var(--ease), background 0.2s var(--ease), transform 0.15s var(--ease);
+  &:active { transform: scale(0.95); }
+  &.active {
+    color: var(--accent);
+    font-weight: 600;
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
 }
 
 /* Tablet and desktop: sidebar on the right */
@@ -78,11 +89,4 @@
   .brand { justify-content: flex-start; padding: 0 8px; }
   .brand-name { display: inline; font-size: 17px; font-weight: 700; }
   .side-link { justify-content: flex-start; height: 42px; padding: 0 12px; span { display: inline; } }
-}
-
-/* Immersive reading: chrome slides away (P7) */
-.immersive {
-  .tabbar { transform: translateY(100%); }
-  .sidebar { transform: translateX(100%); }
-  .content { margin-inline-start: 0; padding-bottom: 0; }
 }

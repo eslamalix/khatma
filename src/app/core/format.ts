@@ -35,6 +35,8 @@ export const HOURS: Forms = ['ساعة', 'ساعتان', 'ساعات', 'ساعة
 export const MINUTES: Forms = ['دقيقة', 'دقيقتان', 'دقائق', 'دقيقة'];
 export const DAYS: Forms = ['يوم', 'يومان', 'أيام', 'يوماً'];
 export const PAGES: Forms = ['صفحة', 'صفحتان', 'صفحات', 'صفحة'];
+export const PASSAGES: Forms = ['مقطع واحد', 'مقطعان', 'مقاطع', 'مقطعاً'];
+export const GROUPS: Forms = ['مجموعة واحدة', 'مجموعتان', 'مجموعات', 'مجموعة'];
 
 /** 38656000 → { hours: "١٠ ساعات", minutes: "٤٤ دقيقة" } (either part may be empty). */
 export function hoursAndMinutes(ms: number): { hours: string; minutes: string } {
@@ -68,3 +70,26 @@ const ORDINALS = ['الأولى', 'الثانية', 'الثالثة', 'الرا�
 
 /** Feminine ordinal for "الختمة": 2 → "الثانية". */
 export const ordinal = (n: number) => ORDINALS[n - 1] ?? `رقم ${ar(n)}`;
+
+const hijriFmt = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-arab', { day: 'numeric', month: 'long', year: 'numeric' });
+
+function hijriParts(date: Date) {
+  const parts = hijriFmt.formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return { day: get('day'), month: get('month'), year: get('year') };
+}
+
+/** Hijri (Umm al-Qura) date as a secondary label: "٤ ربيع الآخر ١٤٤٨ هـ". */
+export function hijriDate(date: Date): string {
+  const h = hijriParts(date);
+  return `${h.day} ${h.month} ${h.year} هـ`;
+}
+
+/** Hijri months a Gregorian month spans: "ربيع الأول – ربيع الآخر ١٤٤٨ هـ". */
+export function hijriMonthSpan(year: number, month: number): string {
+  const a = hijriParts(new Date(year, month, 1));
+  const b = hijriParts(new Date(year, month + 1, 0));
+  if (a.month === b.month) return `${a.month} ${a.year} هـ`;
+  if (a.year === b.year) return `${a.month} – ${b.month} ${b.year} هـ`;
+  return `${a.month} ${a.year} – ${b.month} ${b.year} هـ`;
+}

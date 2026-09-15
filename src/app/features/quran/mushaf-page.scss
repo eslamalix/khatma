@@ -1,117 +1,185 @@
 :host {
   --scale: 1;
+  --fit: 1;
+  /* Final text size factor: the page's own fit times the reader's zoom. */
+  --size: calc(var(--fit) * var(--scale));
   display: block;
   min-height: 100%;
 }
 
+/* Hold the text back until it has been sized, so it never visibly jumps. */
+:host .sheet > :not(.page-no) { transition: opacity 0.2s var(--ease); }
+:host(:not(.fitted)) .sheet > :not(.page-no):not(.skeleton):not(.state) { opacity: 0; }
+
 .sheet {
+  position: relative;
   max-width: 640px;
   min-height: 100%;
   margin: 0 auto;
-  padding: 18px 22px 24px;
+  padding: 14px 20px 20px;
   display: flex;
   flex-direction: column;
-  color: var(--ink);
+  color: var(--q-ink);
+  --q-bg: var(--paper);
 
+  /* Larger screens: a real page on the desk, with the fine double rule of a printed mushaf. */
   @media (min-width: 768px) {
     min-height: calc(100% - 40px);
     margin: 20px auto;
-    padding: 34px 46px 28px;
+    padding: 40px 52px 30px;
     background: var(--sheet);
-    border-radius: 8px;
-    box-shadow: 0 1px 2px rgba(29, 28, 26, 0.05), 0 12px 40px rgba(29, 28, 26, 0.07);
+    --q-bg: var(--sheet);
+    border-radius: 6px;
+    box-shadow: 0 1px 2px rgba(40, 30, 10, 0.06), 0 14px 44px rgba(40, 30, 10, 0.08);
+    &::before,
+    &::after {
+      content: '';
+      position: absolute;
+      pointer-events: none;
+      border: 1px solid var(--q-gold-line);
+      border-radius: 3px;
+    }
+    &::before { inset: 12px; opacity: 0.7; }
+    &::after { inset: 16px; opacity: 0.35; }
   }
 }
 
-.surah-frame {
+/* Surah header: a quiet cartouche, name in the Quran face, order and ayah count at its sides. */
+.surah-head {
   position: relative;
-  height: 46px;
-  margin: 6px 0 4px;
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  border-radius: 12px;
   display: grid;
-  place-items: center;
-  font-family: var(--font-quran);
-  font-size: calc(21px * var(--scale));
-  color: var(--accent);
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  min-height: calc(50px * max(1, var(--size) * 0.9));
+  margin: 12px 0 6px;
+  padding: 0 14px;
+  border: 1px solid var(--q-gold-line);
+  border-radius: 14px;
+  background: var(--q-gold-wash);
   &::before {
     content: '';
     position: absolute;
     inset: 3px;
-    border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
-    border-radius: 9px;
+    border: 1px solid var(--q-gold-line);
+    border-radius: 11px;
+    opacity: 0.45;
+    pointer-events: none;
   }
 }
 
+.surah-name {
+  margin: 0;
+  font-family: var(--font-quran);
+  font-size: calc(22px * var(--size));
+  font-weight: 400;
+  line-height: 1.9;
+  color: var(--q-ink);
+  white-space: nowrap;
+}
+
+.side {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--q-gold);
+  white-space: nowrap;
+  &:last-child { text-align: end; }
+}
+
 .basmala {
-  margin: 10px 0 0;
+  margin: 8px 0 2px;
   text-align: center;
   font-family: var(--font-quran);
-  font-size: calc(23px * var(--scale));
-  line-height: 2;
+  font-size: calc(23px * var(--size));
+  line-height: 2.1;
+  color: var(--q-ink);
+  @media (min-width: 768px) { font-size: calc(26px * var(--size)); }
 }
 
 .text {
   margin: 0;
   font-family: var(--font-quran);
-  font-size: calc(24.5px * var(--scale));
-  line-height: 2.35;
+  font-size: calc(24px * var(--size));
+  line-height: 2.3;
   text-align: justify;
   text-align-last: center;
-  @media (min-width: 768px) { font-size: calc(28px * var(--scale)); }
+  word-spacing: -0.02em;
+  @media (min-width: 768px) { font-size: calc(28px * var(--size)); }
 }
 
 :host(.opening) .text { text-align: center; }
+/* Al-Fatiha and the opening of Al-Baqarah are short: rest them in the middle of the page. */
+:host(.opening) .sheet { justify-content: center; }
+:host(.opening) .page-no { margin-top: 0; }
 
-.ayah-unit {
-  display: inline;
-  cursor: pointer;
-  border-radius: 6px;
-  padding: 0 4px;
-  margin: 0 1px;
-  transition: background 0.18s var(--ease);
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
-
-  @media (hover: hover) {
-    &:not(.selected):hover {
-      background: linear-gradient(
-        180deg,
-        transparent 7px,
-        color-mix(in srgb, var(--accent) 6%, transparent) 7px,
-        color-mix(in srgb, var(--accent) 6%, transparent) calc(100% - 7px),
-        transparent calc(100% - 7px)
-      );
-    }
-  }
-
-  &.selected {
-    background: linear-gradient(
-      180deg,
-      transparent 7px,
-      color-mix(in srgb, var(--accent) 14%, transparent) 7px,
-      color-mix(in srgb, var(--accent) 14%, transparent) calc(100% - 7px),
-      transparent calc(100% - 7px)
-    );
-    .end {
-      color: var(--accent-strong);
-      font-weight: 700;
-    }
-  }
+/*
+ * Highlights: a soft pill drawn on each line fragment of an ayah. Amiri Quran's text box is 2.45em tall
+ * but the ink sits between ~0.57em and ~2.32em, so the band is placed on the ink, not on the box, with
+ * rounded ends from two half-ellipses. Colours are opaque mixes with the page so overlapping layers never
+ * leave darker seams. Ayahs are separated by padding (no space outside the unit), so a selected range
+ * reads as one continuous highlight.
+ */
+@mixin pill($c, $start: true, $end: true) {
+  $top: 0.5em;
+  $h: 1.86em;
+  $r: 0.42em;
+  $flat: linear-gradient($c, $c);
+  // RTL: the ayah starts on the right and ends on the left. Inside a selected range, inner edges stay flat.
+  $left: $flat;
+  $right: $flat;
+  @if $end { $left: radial-gradient(farthest-side at 100% 50%, $c 94%, transparent); }
+  @if $start { $right: radial-gradient(farthest-side at 0% 50%, $c 94%, transparent); }
+  background:
+    $left left $top / #{$r + 0.02em} $h no-repeat,
+    $right right $top / #{$r + 0.02em} $h no-repeat,
+    $flat center $top / calc(100% - #{2 * $r}) $h no-repeat;
 }
 
+.ayah-unit {
+  cursor: pointer;
+  padding-inline: 0.3em;
+  outline-offset: -2px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  -webkit-tap-highlight-color: transparent;
+  @media (hover: hover) {
+    &:not(.selected):not(.playing):hover { @include pill(color-mix(in srgb, var(--accent) 7%, var(--q-bg))); }
+  }
+  &.selected { @include pill(color-mix(in srgb, var(--accent) 17%, var(--q-bg)), false, false); }
+  &.selected.sel-first { @include pill(color-mix(in srgb, var(--accent) 17%, var(--q-bg)), true, false); }
+  &.selected.sel-last { @include pill(color-mix(in srgb, var(--accent) 17%, var(--q-bg)), false, true); }
+  &.selected.sel-first.sel-last { @include pill(color-mix(in srgb, var(--accent) 17%, var(--q-bg))); }
+  &.playing { @include pill(color-mix(in srgb, var(--q-gold) 20%, var(--q-bg))); }
+}
+
+/* Ayah number inside the classic end-of-ayah ornament (Amiri Quran draws ۝ around the digits). */
 .end {
-  color: var(--accent);
+  color: var(--q-gold);
+  font-size: 1.18em;
+  /* Keep the larger ornament from making its line taller than the others. */
+  line-height: 1;
   white-space: nowrap;
-  padding-inline: 0.12em;
+  transition: color 0.2s var(--ease);
+  .selected & { color: var(--accent); }
 }
 
 .page-no {
   margin-top: auto;
-  padding-top: 16px;
-  text-align: center;
-  font-size: 12px;
+  padding-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 12.5px;
+  font-weight: 500;
   color: var(--ink-3);
+  &::before,
+  &::after {
+    content: '';
+    width: 28px;
+    height: 1px;
+    background: var(--q-gold-line);
+  }
 }
 
 .skeleton {

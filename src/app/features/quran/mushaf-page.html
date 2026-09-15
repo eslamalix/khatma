@@ -2,7 +2,11 @@
   @if (data()) {
     @for (block of blocks(); track $index) {
       @if (block.kind === 'header') {
-        <div class="surah-frame"><span>سُورَةُ {{ surahName(block.surah) }}</span></div>
+        <header class="surah-head">
+          <span class="side">ترتيبها {{ ar(block.surah) }}</span>
+          <h2 class="surah-name">سُورَةُ {{ surahName(block.surah) }}</h2>
+          <span class="side">آياتها {{ ar(ayahCount(block.surah)) }}</span>
+        </header>
         @if (block.basmala) {
           <p class="basmala">بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ</p>
         }
@@ -11,12 +15,13 @@
           @for (a of block.ayahs; track (a.surah + ':' + a.ayah)) {
             <span class="ayah-unit"
               [class.selected]="isAyahSelected(a)"
+              [class.sel-first]="a.ayah === selectedRange()?.startAyah"
+              [class.sel-last]="a.ayah === selectedRange()?.endAyah"
+              [class.playing]="isAyahPlaying(a)"
               (click)="selectAyah(a, $event)"
               tabindex="0"
               role="button"
-              [attr.aria-label]="surahName(a.surah) + ' آية ' + ar(a.ayah)">
-              <span class="ayah">{{ a.words.join(' ') }}</span><span class="end" [attr.aria-label]="'آية ' + ar(a.ayah)">﴿{{ ar(a.ayah) }}﴾</span>
-            </span>{{ ' ' }}
+              [attr.aria-label]="surahName(a.surah) + ' آية ' + ar(a.ayah)">{{ a.words.join(' ') }}&nbsp;<span class="end" aria-hidden="true">۝{{ ar(a.ayah) }}</span></span><wbr />
           }
         </p>
       }

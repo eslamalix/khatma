@@ -7,8 +7,8 @@
   --card: #ffffff;
   --card-frost: rgba(255, 255, 255, 0.72);
   --ink: #1d1c1a;
-  --ink-2: #6e6b64;
-  --ink-3: #a9a59c;
+  --ink-2: #57534c;
+  --ink-3: #716d65;
   --line: rgba(29, 28, 26, 0.08);
   --track: #ece9e2;
   --fill: rgba(29, 28, 26, 0.05);
@@ -39,8 +39,8 @@
     --card: #1f1f1d;
     --card-frost: rgba(31, 31, 29, 0.72);
     --ink: #edebe6;
-    --ink-2: #a6a29a;
-    --ink-3: #6f6c66;
+    --ink-2: #bdb8ae;
+    --ink-3: #98938a;
     --line: rgba(255, 255, 255, 0.08);
     --track: #2a2a27;
     --fill: rgba(255, 255, 255, 0.06);
@@ -56,14 +56,100 @@
   }
 }
 
-[data-theme='cream'] { --paper: #fbf9f4; --sheet: #fffdf8; }
-[data-theme='white'] { --paper: #ffffff; --sheet: #ffffff; }
-[data-theme='dark'] {
-  --paper: #171715;
-  --sheet: #1c1c1a;
-  --ink: #edebe6;
-  --ink-2: #a6a29a;
-  --fill: rgba(255, 255, 255, 0.06);
+/*
+ * Mushaf reading themes. Each one is a complete palette (page, Quran text, gold ornaments,
+ * highlights and the reader's own bars and sheets) so a light page never meets dark-mode text.
+ */
+@mixin mushaf-light {
+  color-scheme: light;
+  --bg: #f4efe4;
+  --desk: #efe9dd;
+  --paper: #faf6ec;
+  --sheet: #fdfaf2;
+  --card: #fffdf7;
+  --ink: #1f1b14;
+  --ink-2: #5a5448;
+  --ink-3: #736b5c;
+  --line: rgba(60, 45, 20, 0.1);
+  --track: #ebe4d5;
+  --fill: rgba(60, 45, 20, 0.055);
+  --chrome: rgba(250, 246, 236, 0.9);
+  --accent: #2f6f5c;
+  --accent-strong: #245747;
+  --accent-soft: #e3ece4;
+  --on-accent: #ffffff;
+  --q-ink: #231e16;
+  --q-gold: #86622a;
+  --q-gold-line: rgba(150, 110, 45, 0.5);
+  --q-gold-wash: rgba(163, 122, 56, 0.08);
+  --q-select: rgba(47, 111, 92, 0.14);
+  --q-hover: rgba(47, 111, 92, 0.06);
+  --q-play: rgba(196, 150, 72, 0.24);
+}
+
+@mixin mushaf-white {
+  @include mushaf-light;
+  --bg: #f6f6f4;
+  --desk: #eeeeec;
+  --paper: #ffffff;
+  --sheet: #ffffff;
+  --card: #ffffff;
+  --ink: #1b1b1a;
+  --ink-2: #57534c;
+  --ink-3: #716d65;
+  --line: rgba(0, 0, 0, 0.08);
+  --track: #ececea;
+  --fill: rgba(0, 0, 0, 0.045);
+  --chrome: rgba(255, 255, 255, 0.9);
+  --accent-soft: #e6efea;
+  --q-ink: #161616;
+  --q-gold: #7b5a20;
+  --q-gold-line: rgba(140, 104, 45, 0.45);
+  --q-gold-wash: rgba(152, 116, 58, 0.05);
+}
+
+/* Warm dark: soft off-white text on a deep brown-black, gentle on the eyes at night. */
+@mixin mushaf-dark {
+  color-scheme: dark;
+  --bg: #121110;
+  --desk: #0e0d0b;
+  --paper: #161512;
+  --sheet: #1b1a16;
+  --card: #22211c;
+  --ink: #ebe5d8;
+  --ink-2: #b7b0a2;
+  --ink-3: #9b9587;
+  --line: rgba(255, 245, 225, 0.09);
+  --track: #2b2a25;
+  --fill: rgba(255, 245, 225, 0.06);
+  --chrome: rgba(22, 21, 18, 0.88);
+  --accent: #72b49b;
+  --accent-strong: #8fc7b2;
+  --accent-soft: rgba(114, 180, 155, 0.16);
+  --on-accent: #0f1a16;
+  --q-ink: #ece5d6;
+  --q-gold: #d6ae63;
+  --q-gold-line: rgba(214, 174, 99, 0.45);
+  --q-gold-wash: rgba(201, 166, 96, 0.06);
+  --q-select: rgba(114, 180, 155, 0.2);
+  --q-hover: rgba(114, 180, 155, 0.08);
+  --q-play: rgba(201, 166, 96, 0.22);
+}
+
+app-quran-reader,
+app-quran-reader[data-theme='cream'] { @include mushaf-light; }
+app-quran-reader[data-theme='white'] { @include mushaf-white; }
+app-quran-reader[data-theme='dark'] { @include mushaf-dark; }
+@media (prefers-color-scheme: dark) {
+  app-quran-reader[data-theme='auto'] { @include mushaf-dark; }
+}
+
+/* While reading, the tab bar and sidebar take the page's theme so a dark page has no bright strip under it. */
+.shell:has(app-quran-reader[data-theme='cream']) { @include mushaf-light; }
+.shell:has(app-quran-reader[data-theme='white']) { @include mushaf-white; }
+.shell:has(app-quran-reader[data-theme='dark']) { @include mushaf-dark; }
+@media (prefers-color-scheme: dark) {
+  .shell:has(app-quran-reader[data-theme='auto']) { @include mushaf-dark; }
 }
 
 @media (min-width: 768px) {
@@ -250,6 +336,32 @@ a { color: var(--accent); text-decoration: none; }
   }
   button { height: 46px; padding: 0 20px; border-radius: 14px; background: var(--accent); color: var(--on-accent); font-weight: 600; }
 }
+
+/* Tafsir Sheet */
+.tafsir-sheet-body { display: flex; flex-direction: column; gap: 14px; padding: 6px 2px; }
+.tafsir-loading { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 28px 0; color: var(--ink-2); }
+.tafsir-text-box { padding: 16px 18px; border-radius: 16px; background: var(--fill); border: 1px solid var(--line); }
+.tafsir-ayah { display: block; margin-bottom: 4px; font-size: 12.5px; font-weight: 700; color: var(--accent); }
+.tafsir-paragraph { margin: 0; font-size: 16.5px; line-height: 2.15; color: var(--ink); text-align: justify; }
+.tafsir-footer { display: flex; justify-content: flex-end; }
+.tafsir-close-btn {
+  height: 40px; padding: 0 22px; border-radius: 12px; background: var(--fill); color: var(--ink); font-weight: 600; font-size: 14px;
+  &:hover { background: var(--track); }
+}
+
+/* Settings Sheet: Reciter chips */
+.reciters-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.reciter-chip {
+  display: flex; flex-direction: column; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: var(--fill);
+  border: 1.5px solid transparent; text-align: start; transition: 0.18s;
+  &:hover { background: var(--track); }
+  &.active {
+    border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent);
+    .reciter-name { color: var(--accent); }
+  }
+}
+.reciter-name { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.reciter-sub { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
 
 .list {
   list-style: none;

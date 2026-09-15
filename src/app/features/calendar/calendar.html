@@ -1,13 +1,12 @@
 <div class="calendar-page">
   <!-- Top Header -->
   <header class="page-header">
-    <h1 class="page-title">التقويم</h1>
-    <div class="user-pill">
-      <div class="avatar">أ</div>
-      <span>أنا</span>
-      <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M7 10l5 5 5-5"></path>
-      </svg>
+    <div class="header-main-title">
+      <h1 class="page-title">التقويم</h1>
+      <a routerLink="/stats" class="stats-link-pill">
+        <app-icon name="stats" [size]="14" [stroke]="2" />
+        <span>سجل الختمات</span>
+      </a>
     </div>
   </header>
 
@@ -31,13 +30,13 @@
       <div class="period-text">
         @if (viewMode() === 'month') {
           <div class="period-title">{{ monthData().title }}</div>
-          <div class="period-sub">{{ monthData().summaryStr }}</div>
+          <div class="period-sub">{{ hijriMonth() }}، {{ monthData().summaryStr }}</div>
         } @else if (viewMode() === 'week') {
           <div class="period-title">{{ weekData().title }}</div>
           <div class="period-sub">{{ weekData().summaryStr }}</div>
         } @else {
           <div class="period-title">{{ dayData().title }}</div>
-          <div class="period-sub">{{ dayData().sessionCountStr }}</div>
+          <div class="period-sub">{{ hijriDay() }}، {{ dayData().sessionCountStr }}</div>
         }
       </div>
 
@@ -65,12 +64,13 @@
                 class="day-cell"
                 [class.today]="d.dateStr === todayStr"
                 [class.selected]="d.dateStr === selectedDateStr()"
+                [class.future]="d.dateStr > todayStr"
                 [class.lvl-0]="d.intensity === 0"
                 [class.lvl-1]="d.intensity === 1"
                 [class.lvl-2]="d.intensity === 2"
                 [class.lvl-3]="d.intensity === 3"
                 [class.lvl-4]="d.intensity === 4"
-                (click)="selectDay(d)"
+                (click)="openDay(d)"
               >
                 {{ ar(d.dayOfMonth) }}
               </button>
@@ -215,7 +215,7 @@
           </button>
           <div class="period-text">
             <div class="period-title">{{ monthData().title }}</div>
-            <div class="period-sub">{{ monthData().summaryStr }}</div>
+            <div class="period-sub">{{ hijriMonth() }}، {{ monthData().summaryStr }}</div>
           </div>
           <button type="button" class="nav-btn" (click)="nextMonth()" aria-label="الشهر التالي">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -238,6 +238,7 @@
                 class="day-cell"
                 [class.today]="d.dateStr === todayStr"
                 [class.selected]="d.dateStr === selectedDateStr()"
+                [class.future]="d.dateStr > todayStr"
                 [class.lvl-0]="d.intensity === 0"
                 [class.lvl-1]="d.intensity === 1"
                 [class.lvl-2]="d.intensity === 2"
@@ -309,7 +310,7 @@
       <section class="card cal-card">
         <div class="panel-header-line">
           <div class="panel-heading">{{ dayData().title }}</div>
-          <div class="panel-sub">{{ dayData().sessionCountStr }}</div>
+          <div class="panel-sub">{{ hijriDay() }}، {{ dayData().sessionCountStr }}</div>
         </div>
 
         <div class="day-content-split">

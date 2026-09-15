@@ -57,3 +57,30 @@ export function surahPages(surah: number): { from: number; to: number } {
   const to = surah < 114 ? Math.max(from, SURAH_START_PAGES[surah] - 1) : TOTAL_PAGES;
   return { from, to };
 }
+
+/** Number of ayahs in each surah (Hafs, 6236 in total). */
+export const AYAH_COUNTS: readonly number[] = [
+  7, 286, 200, 176, 120, 165, 206, 75, 129, 109, 123, 111, 43, 52, 99, 128, 111, 110, 98, 135, 112, 78, 118, 64, 77,
+  227, 93, 88, 69, 60, 34, 30, 73, 54, 45, 83, 182, 88, 75, 85, 54, 53, 89, 59, 37, 35, 38, 29, 18, 45, 60, 49, 62, 55,
+  78, 96, 29, 22, 24, 13, 14, 11, 11, 18, 12, 12, 30, 52, 52, 44, 28, 28, 20, 56, 40, 31, 50, 40, 46, 42, 29, 19, 36,
+  25, 22, 17, 19, 26, 30, 20, 15, 21, 11, 8, 8, 19, 5, 8, 8, 11, 11, 8, 3, 9, 5, 4, 7, 3, 6, 3, 5, 4, 5, 6,
+];
+
+export interface AyahRef {
+  surah: number;
+  ayah: number;
+}
+
+/** The ayah after `ref` in mushaf order, crossing into the next surah; null after An-Nas. */
+export function nextAyah({ surah, ayah }: AyahRef): AyahRef | null {
+  if (ayah < AYAH_COUNTS[surah - 1]) return { surah, ayah: ayah + 1 };
+  return surah < 114 ? { surah: surah + 1, ayah: 1 } : null;
+}
+
+/** The ayah before `ref` in mushaf order; null before Al-Fatiha 1. */
+export function prevAyah({ surah, ayah }: AyahRef): AyahRef | null {
+  if (ayah > 1) return { surah, ayah: ayah - 1 };
+  return surah > 1 ? { surah: surah - 1, ayah: AYAH_COUNTS[surah - 2] } : null;
+}
+
+export const compareAyah = (a: AyahRef, b: AyahRef) => a.surah - b.surah || a.ayah - b.ayah;

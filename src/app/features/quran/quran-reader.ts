@@ -4,10 +4,12 @@ import {
   Component,
   computed,
   DestroyRef,
+  effect,
   ElementRef,
   inject,
   Injector,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -23,9 +25,9 @@ import {
   surahAtPage,
   surahName,
   TOTAL_PAGES,
+  AyahRef,
 } from '../../core/quran/quran-meta';
 import { ar, minSec, percent, shortDuration } from '../../core/format';
-import { UiState } from '../../ui/ui-state';
 import { Icon } from '../../ui/icon';
 import { Sheet } from '../../ui/sheet';
 import { MushafPage } from './mushaf-page';
@@ -33,8 +35,13 @@ import { QuranAyah } from '../../core/quran/quran-page';
 import { AwradStore } from '../../core/awrad/awrad.store';
 import { BackgroundTheme, ReadingMode } from '../../core/reading/reading';
 
+import { QuranAudioService } from '../../core/quran/quran-audio.service';
+import { TafsirService } from '../../core/quran/tafsir.service';
+import { QuranPlayer } from './quran-player';
+
 const WINDOW = 2;
 const SETTLE_MS = 140;
+const TAFSIR_MAX_AYAHS = 10;
 
 type JumpTab = 'page' | 'surah' | 'juz';
 
@@ -47,24 +54,26 @@ export interface AyahRangeSelection {
 
 @Component({
   selector: 'app-quran-reader',
-  imports: [MushafPage, Icon, Sheet, FormsModule],
+  imports: [MushafPage, Icon, Sheet, FormsModule, QuranPlayer],
   templateUrl: './quran-reader.html',
   styleUrl: './quran-reader.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    '[class.immersive]': 'ui.immersive()',
     '[class.has-selection]': 'selectedRange() !== null',
+    '[class.has-player]': 'audio.isActive()',
     '[attr.data-theme]': 'store.state().backgroundTheme',
     '(document:keydown)': 'onKey($event)',
   },
 })
 export class QuranReader {
   protected readonly store = inject(ReadingStore);
-  protected readonly ui = inject(UiState);
   protected readonly awradStore = inject(AwradStore);
+  protected readonly audio = inject(QuranAudioService);
+  protected readonly tafsirService = inject(TafsirService);
   private readonly timer = inject(ReadingTimer);
   private readonly pages = inject(QuranPages);
   private readonly pager = viewChild.required<ElementRef<HTMLElement>>('pager');
+  private readonly player = viewChild.required(QuranPlayer);
   private readonly injector = inject(Injector);
 
   protected readonly ar = ar;
@@ -109,10 +118,8 @@ export class QuranReader {
     const r = this.selectedRange();
     if (!r) return '';
     const sName = surahName(r.surah);
-    if (r.startAyah === r.endAyah) {
-      return `سورة ${sName} : ${ar(r.startAyah)}`;
-    }
-    return `سورة ${sName} : ${ar(r.startAyah)} - ${ar(r.endAyah)} (${ar(r.ayahs.length)} آيات)`;
+    if (r.startAyah === r.endAyah) return `${sName}، الآية ${ar(r.startAyah)}`;
+    return `${sName}، الآيات ${ar(r.startAyah)}–${ar(r.endAyah)}`;
   });
 
   protected readonly canShrink = computed(() => {
@@ -138,7 +145,15 @@ export class QuranReader {
   newGroupInput = '';
   protected readonly isAddingNewGroup = signal<boolean>(false);
 
+  // Tafsir
+  readonly tafsirOpen = signal<boolean>(false);
+  readonly tafsirLoading = signal<boolean>(false);
+  readonly tafsirItems = signal<{ ayah: number; text: string }[]>([]);
+  readonly tafsirRef = signal<string>('');
+
   private settleTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Page to keep while the pager is being resized (rotation, window resize). */
+  private resizeHold: number | null = null;
   /** Page a button/keyboard turn is animating to; scroll events in between must not move the counter back. */
   private turningTo: number | null = null;
   private pinch: { distance: number; scale: number } | null = null;
@@ -158,12 +173,27 @@ export class QuranReader {
       this.width.set(initial.w);
       this.height.set(initial.h);
 
-      const observer = new ResizeObserver(() => {
-        const m = measure();
+      // Layout size from the observer entry: fractional (no drift across 604 slides) and immune to CSS transforms.
+      const observer = new ResizeObserver(([entry]) => {
+        const box = entry.contentBoxSize?.[0];
+        const m = box ? { w: box.inlineSize, h: box.blockSize } : measure();
         if (m.w === this.width() && m.h === this.height()) return;
+        // Scroll events during a resize measure the old offset against the new size; hold the page until re-aligned.
+        this.resizeHold ??= this.visiblePage();
+        const page = this.resizeHold;
+        // Scroll snapping would re-snap to whichever slide it last tracked while slides move; pause it.
+        el.style.scrollSnapType = 'none';
         this.width.set(m.w);
         this.height.set(m.h);
-        this.afterRender(() => this.scrollToPage(this.visiblePage(), false));
+        this.afterRender(() => {
+          this.scrollToPage(page, false);
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => {
+              el.style.scrollSnapType = '';
+              this.resizeHold = null;
+            }),
+          );
+        });
       });
       observer.observe(el);
       destroyRef.onDestroy(() => observer.disconnect());
@@ -177,8 +207,28 @@ export class QuranReader {
     });
     destroyRef.onDestroy(() => {
       this.timer.stop();
-      this.ui.immersive.set(false);
+      this.audio.stop();
       if (this.settleTimer) clearTimeout(this.settleTimer);
+    });
+
+    // The moment today's wird is completed while reading: a quiet word and a soft haptic, nothing more.
+    let wasDone: boolean | null = null;
+    effect(() => {
+      const done = this.store.wird()?.done ?? null;
+      if (wasDone === false && done) {
+        untracked(() => {
+          this.saveToast.set('أتممت وردك اليوم، بارك الله فيك');
+          setTimeout(() => this.saveToast.set(null), 3200);
+          if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate([15, 50, 25]);
+        });
+      }
+      if (this.store.ready()) wasDone = done;
+    });
+
+    // Recitation leads the reader: highlight follows the ayah and pages turn on their own.
+    effect(() => {
+      const cur = this.audio.current();
+      if (cur) untracked(() => this.followRecitation(cur));
     });
   }
 
@@ -194,7 +244,8 @@ export class QuranReader {
     const el = this.pager().nativeElement;
     const isVert = this.readingMode() === 'vertical';
     const size = isVert ? this.height() : this.width();
-    if (!size) return;
+    if (!size || this.resizeHold !== null) return;
+    if (Math.abs((isVert ? el.clientHeight : el.clientWidth) - size) > 1) return; // size signal not caught up yet
     const scrollPos = isVert ? el.scrollTop : Math.abs(el.scrollLeft);
     const page = clampPage(Math.round(scrollPos / size) + 1);
     if (this.turningTo === page) this.turningTo = null;
@@ -245,56 +296,36 @@ export class QuranReader {
     this.afterRender(() => this.scrollToPage(this.visiblePage(), false));
   }
 
-  /** Ayah selection: single or multiple consecutive ayahs */
+  /**
+   * Ayah selection. Tap an ayah to select it; tap another in the same surah to select the whole range.
+   * Tapping an ayah at either edge of the selection takes it back out (the last one clears the selection),
+   * and tapping inside the range shortens it to end there.
+   */
   protected onAyahClicked(event: { ayah: QuranAyah; pageAyahs: QuranAyah[] }) {
     const { ayah, pageAyahs } = event;
     this.lastPageAyahs.set(pageAyahs);
     const cur = this.selectedRange();
 
     if (!cur || cur.surah !== ayah.surah) {
-      this.selectedRange.set({
-        surah: ayah.surah,
-        startAyah: ayah.ayah,
-        endAyah: ayah.ayah,
-        ayahs: [ayah],
-      });
+      this.setSelection(ayah.surah, ayah.ayah, ayah.ayah, pageAyahs);
       return;
     }
 
-    // Same surah clicked
-    if (cur.startAyah === cur.endAyah && cur.startAyah === ayah.ayah) {
-      // Toggle off when clicking the single selected ayah again
-      this.selectedRange.set(null);
-      return;
-    }
-
-    let start: number;
-    let end: number;
-
-    if (cur.startAyah === cur.endAyah) {
-      // Anchor established, expand range
-      start = Math.min(cur.startAyah, ayah.ayah);
-      end = Math.max(cur.startAyah, ayah.ayah);
+    const n = ayah.ayah;
+    if (n >= cur.startAyah && n <= cur.endAyah) {
+      if (cur.startAyah === cur.endAyah) this.selectedRange.set(null);
+      else if (n === cur.endAyah) this.setSelection(cur.surah, cur.startAyah, n - 1, pageAyahs);
+      else if (n === cur.startAyah) this.setSelection(cur.surah, n + 1, cur.endAyah, pageAyahs);
+      else this.setSelection(cur.surah, cur.startAyah, n, pageAyahs);
     } else {
-      if (ayah.ayah === cur.startAyah) {
-        start = cur.startAyah;
-        end = cur.startAyah;
-      } else {
-        start = Math.min(cur.startAyah, ayah.ayah);
-        end = Math.max(cur.startAyah, ayah.ayah);
-      }
+      this.setSelection(cur.surah, Math.min(cur.startAyah, n), Math.max(cur.endAyah, n), pageAyahs);
     }
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(8);
+  }
 
-    const rangeAyahs = pageAyahs
-      .filter((x) => x.surah === ayah.surah && x.ayah >= start && x.ayah <= end)
-      .sort((a, b) => a.ayah - b.ayah);
-
-    this.selectedRange.set({
-      surah: ayah.surah,
-      startAyah: start,
-      endAyah: end,
-      ayahs: rangeAyahs.length > 0 ? rangeAyahs : [ayah],
-    });
+  private setSelection(surah: number, start: number, end: number, pageAyahs: QuranAyah[]) {
+    const ayahs = pageAyahs.filter((x) => x.surah === surah && x.ayah >= start && x.ayah <= end).sort((a, b) => a.ayah - b.ayah);
+    this.selectedRange.set({ surah, startAyah: start, endAyah: end, ayahs });
   }
 
   /** Expand or shrink the selection by one ayah using the bottom bar stepper */
@@ -398,16 +429,57 @@ export class QuranReader {
     }
   }
 
-  /** Tap in the middle of the page toggles immersive reading (P7), or clears ayah selection if active. */
-  protected onTap(event: MouseEvent) {
-    if (this.selectedRange()) {
-      this.selectedRange.set(null);
+  /** Tapping the page outside an ayah clears the selection. */
+  protected onTap() {
+    this.selectedRange.set(null);
+  }
+
+  /** Tafsir for the whole selection, one card per ayah (capped so a long range stays readable). */
+  openTafsir() {
+    const r = this.selectedRange();
+    if (!r) return;
+    const ayahs = r.ayahs.slice(0, TAFSIR_MAX_AYAHS);
+    this.tafsirRef.set(this.selectionLabel());
+    this.tafsirOpen.set(true);
+    this.tafsirLoading.set(true);
+    this.tafsirItems.set([]);
+    Promise.all(ayahs.map((a) => this.tafsirService.getTafsir(a.surah, a.ayah))).then((texts) => {
+      this.tafsirItems.set(ayahs.map((a, i) => ({ ayah: a.ayah, text: texts[i] })));
+      this.tafsirLoading.set(false);
+    });
+  }
+
+  /** One ayah plays onward like a mushaf recitation; a range plays just that passage. */
+  protected playSelection() {
+    const r = this.selectedRange();
+    if (!r) return;
+    const from = { surah: r.surah, ayah: r.startAyah };
+    this.audio.playRange(from, r.startAyah === r.endAyah ? null : { surah: r.surah, ayah: r.endAyah });
+    this.selectedRange.set(null);
+  }
+
+  /** Header button: open the player if reciting, otherwise recite from the top of the visible page. */
+  protected async listen() {
+    if (this.audio.isActive()) {
+      this.player().open();
       return;
     }
-    const el = this.pager().nativeElement;
-    const rect = el.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / rect.width;
-    if (x > 0.2 && x < 0.8 && !getSelection()?.toString()) this.ui.immersive.update((v) => !v);
+    const page = await this.pages.get(this.visiblePage()).catch(() => null);
+    const first = page?.ayahs[0];
+    if (first) this.audio.playRange({ surah: first.surah, ayah: first.ayah });
+  }
+
+  private async followRecitation(cur: AyahRef) {
+    this.timer.ping();
+    const here = this.visiblePage();
+    for (const p of [here, here + 1, here - 1]) {
+      if (p < 1 || p > TOTAL_PAGES) continue;
+      const page = await this.pages.get(p).catch(() => null);
+      if (!page?.ayahs.some((a) => a.surah === cur.surah && a.ayah === cur.ayah)) continue;
+      // Only turn if this is still the ayah playing and the reader has not moved meanwhile.
+      if (p !== here && this.audio.current() === cur && this.visiblePage() === here) this.goTo(p);
+      return;
+    }
   }
 
   protected onKey(event: KeyboardEvent) {
@@ -416,22 +488,37 @@ export class QuranReader {
       this.jumpOpen() ||
       this.settingsOpen() ||
       this.saveToGroupOpen() ||
+      this.tafsirOpen() ||
       (target instanceof Element && target.closest('input, select, textarea'))
     ) {
       return;
     }
 
     if (event.key === 'Escape') {
+      if (this.tafsirOpen()) {
+        this.tafsirOpen.set(false);
+        return;
+      }
       if (this.selectedRange()) {
         this.selectedRange.set(null);
         return;
       }
     }
 
-    if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') this.go(1);
-    else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') this.go(-1);
-    else if ((event.ctrlKey || event.metaKey) && (event.key === '=' || event.key === '+')) this.zoom(0.1, event);
-    else if ((event.ctrlKey || event.metaKey) && event.key === '-') this.zoom(-0.1, event);
+    if (event.key === ' ' && !this.tafsirOpen()) {
+      event.preventDefault();
+      this.go(1);
+    } else if ((event.key === 't' || event.key === 'T') && this.selectedRange()) {
+      this.openTafsir();
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+      this.go(1);
+    } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+      this.go(-1);
+    } else if ((event.ctrlKey || event.metaKey) && (event.key === '=' || event.key === '+')) {
+      this.zoom(0.1, event);
+    } else if ((event.ctrlKey || event.metaKey) && event.key === '-') {
+      this.zoom(-0.1, event);
+    }
   }
 
   protected zoom(delta: number, event?: Event) {

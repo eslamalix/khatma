@@ -44,13 +44,87 @@ export class AwradStore {
     return newPassage;
   }
 
+  renameGroup(groupId: string, title: string) {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    this.patchGroup(groupId, (g) => ({ ...g, title: trimmed }));
+  }
+
+  /** Removes a group; returns what is needed to undo it. */
+  deleteGroup(groupId: string): { group: AyahGroup; index: number } | null {
+    const index = this.groups().findIndex((g) => g.id === groupId);
+    if (index < 0) return null;
+    const group = this.groups()[index];
+    this.groups.update((list) => list.filter((g) => g.id !== groupId));
+    this.saveGroups();
+    return { group, index };
+  }
+
+  restoreGroup(group: AyahGroup, index: number) {
+    this.groups.update((list) => {
+      const next = list.filter((g) => g.id !== group.id);
+      next.splice(Math.min(index, next.length), 0, group);
+      return next;
+    });
+    this.saveGroups();
+  }
+
+  /** Removes a passage from a group; returns what is needed to undo it. */
+  removePassage(groupId: string, passageId: string): { passage: GroupPassage; index: number } | null {
+    const group = this.groups().find((g) => g.id === groupId);
+    const index = group?.passages.findIndex((p) => p.id === passageId) ?? -1;
+    if (!group || index < 0) return null;
+    const passage = group.passages[index];
+    this.patchGroup(groupId, (g) => ({ ...g, passages: g.passages.filter((p) => p.id !== passageId) }));
+    return { passage, index };
+  }
+
+  restorePassage(groupId: string, passage: GroupPassage, index: number) {
+    this.patchGroup(groupId, (g) => {
+      const passages = g.passages.filter((p) => p.id !== passage.id);
+      passages.splice(Math.min(index, passages.length), 0, passage);
+      return { ...g, passages };
+    });
+  }
+
+  setPassageRepeat(groupId: string, passageId: string, targetRepeat: number) {
+    const n = Math.min(999, Math.max(1, Math.round(targetRepeat)));
+    this.patchGroup(groupId, (g) => ({
+      ...g,
+      passages: g.passages.map((p) => (p.id === passageId ? { ...p, targetRepeat: n } : p)),
+    }));
+  }
+
+  movePassage(groupId: string, from: number, to: number) {
+    this.patchGroup(groupId, (g) => {
+      if (from === to || from < 0 || from >= g.passages.length) return g;
+      const passages = [...g.passages];
+      const [item] = passages.splice(from, 1);
+      passages.splice(Math.max(0, Math.min(to, passages.length)), 0, item);
+      return { ...g, passages };
+    });
+  }
+
+  /** Moves a passage to the end of another group. */
+  movePassageToGroup(fromGroupId: string, passageId: string, toGroupId: string) {
+    if (fromGroupId === toGroupId) return;
+    const removed = this.removePassage(fromGroupId, passageId);
+    if (removed) this.patchGroup(toGroupId, (g) => ({ ...g, passages: [...g.passages, removed.passage] }));
+  }
+
+  private patchGroup(groupId: string, fn: (g: AyahGroup) => AyahGroup) {
+    this.groups.update((list) => list.map((g) => (g.id === groupId ? fn(g) : g)));
+    this.saveGroups();
+  }
+
   private loadGroups(): AyahGroup[] {
     try {
       if (typeof localStorage === 'undefined') return [...BUILTIN_GROUPS];
       const saved = localStorage.getItem(GROUPS_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        // An empty list is a real choice (every group deleted), not a reason to bring the defaults back.
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }

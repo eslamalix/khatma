@@ -1,14 +1,48 @@
 {
+  "auth": {
+    "providers": {
+      "anonymous": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "ختمة",
+        "supportEmail": "eslamaliwork@gmail.com"
+      }
+    }
+  },
   "firestore": {
     "rules": "firestore.rules"
   },
   "hosting": {
     "public": "dist/quran-kpi/browser",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "rewrites": [{ "source": "**", "destination": "/index.html" }],
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
     "headers": [
-      { "source": "ngsw-worker.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
-      { "source": "**/*.@(js|css)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] }
+      {
+        "source": "ngsw-worker.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "**/*.@(js|css)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      }
     ]
   }
 }

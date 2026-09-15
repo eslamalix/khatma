@@ -1,7 +1,7 @@
 <div class="awrad-page">
   <!-- Page Header -->
   <header class="page-header">
-    <h1 class="page-title">الأوراد</h1>
+    <h1 class="page-title">الأوراد والأذكار</h1>
   </header>
 
   <!-- ================= MOBILE VIEW (< 768px) ================= -->
@@ -9,7 +9,7 @@
     <!-- Tasbeeh Card -->
     <section class="card tasbeeh-card" [class.pulse]="isPulsing()" (click)="increment()">
       <div class="tasbeeh-header" (click)="$event.stopPropagation()">
-        <span class="tasbeeh-label">المسبحة</span>
+        <span class="tasbeeh-label">المسبحة الإلكترونية</span>
         <button type="button" class="reset-btn" (click)="reset()" aria-label="تصفير العداد">
           <app-icon name="refresh" [size]="18" [stroke]="1.8" />
         </button>
@@ -31,8 +31,13 @@
         </svg>
 
         <div class="dial-center">
-          <span class="count-number">{{ ar(count()) }}</span>
-          <span class="count-target">من {{ ar(currentDhikr().target) }}</span>
+          @if (count() === 0) {
+            <span class="count-hint">اضغط للتسبيح</span>
+            <span class="count-target">{{ ar(currentDhikr().target) }} مرة</span>
+          } @else {
+            <span class="count-number">{{ ar(count()) }}</span>
+            <span class="count-target">{{ completing() ? 'تمّ، بارك الله فيك' : 'من ' + ar(currentDhikr().target) }}</span>
+          }
         </div>
       </div>
 
@@ -53,48 +58,33 @@
       </div>
     </section>
 
-    <!-- Groups Section -->
+    <!-- Adhkar Section -->
     <div class="section-header">
-      <h2 class="section-title">مجموعاتي</h2>
-      <button type="button" class="action-link" (click)="openNewGroupModal()">+ جديدة</button>
+      <h2 class="section-title">الأذكار المأثورة</h2>
+    </div>
+
+    <ng-container [ngTemplateOutlet]="adhkarList" />
+
+    <!-- Groups Section (Mobile) -->
+    <div class="section-header" style="margin-top: 16px;">
+      <h2 class="section-title">مجموعاتي القرآنية</h2>
+      <a routerLink="/groups" class="section-link">كل المجموعات ({{ ar(awradStore.groups().length) }})</a>
     </div>
 
     <section class="card list-card">
-      @for (g of groups(); track g.id) {
-        <div class="list-item" (click)="openGroup(g)">
-          <div class="item-icon-wrap accent-tint">
-            <app-icon [name]="g.icon" [size]="18" [stroke]="1.8" />
+      @for (g of awradStore.groups(); track g.id) {
+        <a routerLink="/groups" class="list-item">
+          <div class="item-icon-wrap" [class.leaf-tint]="g.icon === 'leaf'">
+            <app-icon [name]="g.icon || 'shield'" [size]="18" [stroke]="1.8" />
           </div>
           <div class="item-details">
             <div class="item-title">{{ g.title }}</div>
-            <div class="item-sub">{{ g.description }}</div>
+            <div class="item-sub">{{ passages(g.passages.length) }}</div>
           </div>
           <div class="chevron-icon">
             <app-icon name="chevronLeft" [size]="18" [stroke]="2" />
           </div>
-        </div>
-      }
-    </section>
-
-    <!-- Adhkar Section -->
-    <div class="section-header">
-      <h2 class="section-title">الأذكار</h2>
-    </div>
-
-    <section class="card list-card">
-      @for (cat of adhkarCategories(); track cat.id) {
-        <div class="list-item" (click)="openAdhkar(cat)">
-          <div class="item-icon-wrap" [class.sun-tint]="cat.icon === 'sun'" [class.moon-tint]="cat.icon === 'moon'">
-            <app-icon [name]="cat.icon" [size]="18" [stroke]="1.8" />
-          </div>
-          <div class="item-details">
-            <div class="item-title">{{ cat.title }}</div>
-            <div class="item-sub">{{ cat.timeLabel }}</div>
-          </div>
-          <div class="chevron-icon">
-            <app-icon name="chevronLeft" [size]="18" [stroke]="2" />
-          </div>
-        </div>
+        </a>
       }
     </section>
   </div>
@@ -104,7 +94,7 @@
     <!-- Right Column: Big Tasbeeh Card -->
     <section class="card tasbeeh-card desktop-tasbeeh" [class.pulse]="isPulsing()" (click)="increment()">
       <div class="tasbeeh-header" (click)="$event.stopPropagation()">
-        <span class="tasbeeh-label">المسبحة</span>
+        <span class="tasbeeh-label">المسبحة الإلكترونية</span>
         <button type="button" class="reset-btn" (click)="reset()" aria-label="تصفير العداد">
           <app-icon name="refresh" [size]="19" [stroke]="1.8" />
         </button>
@@ -126,8 +116,13 @@
         </svg>
 
         <div class="dial-center">
-          <span class="count-number large">{{ ar(count()) }}</span>
-          <span class="count-target">من {{ ar(currentDhikr().target) }}</span>
+          @if (count() === 0) {
+            <span class="count-hint">اضغط للتسبيح</span>
+            <span class="count-target">{{ ar(currentDhikr().target) }} مرة</span>
+          } @else {
+            <span class="count-number large">{{ ar(count()) }}</span>
+            <span class="count-target">{{ completing() ? 'تمّ، بارك الله فيك' : 'من ' + ar(currentDhikr().target) }}</span>
+          }
         </div>
       </div>
 
@@ -150,90 +145,65 @@
       <div class="instruction-hint">اضغط المسافة أو انقر في أي مكان للتسبيح</div>
     </section>
 
-    <!-- Left Column: Groups and Adhkar -->
+    <!-- Left Column: Adhkar -->
     <div class="side-col">
-      <!-- Groups -->
       <div class="section-header">
-        <h2 class="section-title">مجموعاتي</h2>
-        <button type="button" class="action-link" (click)="openNewGroupModal()">+ جديدة</button>
+        <h2 class="section-title">الأذكار المأثورة</h2>
+      </div>
+
+      <ng-container [ngTemplateOutlet]="adhkarList" />
+
+      <!-- Groups Section (Desktop) -->
+      <div class="section-header" style="margin-top: 24px;">
+        <h2 class="section-title">مجموعاتي القرآنية</h2>
+        <a routerLink="/groups" class="section-link">فتح صفحة المجموعات</a>
       </div>
 
       <section class="card list-card">
-        @for (g of groups(); track g.id) {
-          <div class="list-item" (click)="openGroup(g)">
-            <div class="item-icon-wrap accent-tint">
-              <app-icon [name]="g.icon" [size]="18" [stroke]="1.8" />
+        @for (g of awradStore.groups(); track g.id) {
+          <a routerLink="/groups" class="list-item">
+            <div class="item-icon-wrap" [class.leaf-tint]="g.icon === 'leaf'">
+              <app-icon [name]="g.icon || 'shield'" [size]="18" [stroke]="1.8" />
             </div>
             <div class="item-details">
               <div class="item-title">{{ g.title }}</div>
-              <div class="item-sub">{{ g.description }}</div>
+              <div class="item-sub">{{ passages(g.passages.length) }}</div>
             </div>
             <div class="chevron-icon">
               <app-icon name="chevronLeft" [size]="18" [stroke]="2" />
             </div>
-          </div>
-        }
-      </section>
-
-      <!-- Adhkar -->
-      <div class="section-header">
-        <h2 class="section-title">الأذكار</h2>
-      </div>
-
-      <section class="card list-card">
-        @for (cat of adhkarCategories(); track cat.id) {
-          <div class="list-item" (click)="openAdhkar(cat)">
-            <div class="item-icon-wrap" [class.sun-tint]="cat.icon === 'sun'" [class.moon-tint]="cat.icon === 'moon'">
-              <app-icon [name]="cat.icon" [size]="18" [stroke]="1.8" />
-            </div>
-            <div class="item-details">
-              <div class="item-title">{{ cat.title }}</div>
-              <div class="item-sub">{{ cat.timeLabel }}</div>
-            </div>
-            <div class="chevron-icon">
-              <app-icon name="chevronLeft" [size]="18" [stroke]="2" />
-            </div>
-          </div>
+          </a>
         }
       </section>
     </div>
   </div>
 </div>
 
-<!-- ================= GROUP READING SHEET ================= -->
-<app-sheet [open]="groupSheetOpen()" [title]="activeGroup()?.title ?? ''" (closed)="closeGroup()">
-  @if (activeGroup(); as g) {
-    <div class="sheet-content">
-      <div class="sheet-desc">{{ g.description }}</div>
-      <div class="passages-list">
-        @for (p of g.passages; track p.id) {
-          <div class="passage-card">
-            <div class="passage-header">
-              <span class="passage-title">{{ p.title }}</span>
-              <span class="passage-ref">{{ p.reference }}</span>
-            </div>
-            <p class="passage-text q">{{ p.text }}</p>
-            <div class="passage-footer">
-              <button
-                type="button"
-                class="repeat-btn"
-                [class.done]="getPassageCount(p.id) >= p.targetRepeat"
-                (click)="incrementPassage(p)"
-              >
-                @if (getPassageCount(p.id) >= p.targetRepeat) {
-                  <app-icon name="check" [size]="16" [stroke]="2.2" />
-                  <span>تم التكرار</span>
-                } @else {
-                  <span>{{ ar(getPassageCount(p.id)) }} / {{ ar(p.targetRepeat) }}</span>
-                }
-              </button>
-            </div>
-          </div>
+<ng-template #adhkarList>
+  <section class="card list-card">
+    @for (cat of sortedAdhkar(); track cat.id) {
+      <button type="button" class="list-item" [class.now]="cat.id === periodNow && !doneToday().has(cat.id)" (click)="openAdhkar(cat)">
+        <div class="item-icon-wrap" [class.sun-tint]="cat.icon === 'sun'" [class.moon-tint]="cat.icon === 'moon'">
+          <app-icon [name]="cat.icon" [size]="18" [stroke]="1.8" />
+        </div>
+        <div class="item-details">
+          <div class="item-title">{{ cat.title }}</div>
+          @if (doneToday().has(cat.id)) {
+            <div class="item-sub done"><app-icon name="check" [size]="13" [stroke]="2.6" /> أتممتها اليوم</div>
+          } @else {
+            <div class="item-sub">{{ cat.timeLabel }}</div>
+          }
+        </div>
+        @if (cat.id === periodNow && !doneToday().has(cat.id)) {
+          <span class="now-badge">وقتها الآن</span>
         }
-      </div>
-    </div>
-  }
-</app-sheet>
+        <div class="chevron-icon">
+          <app-icon name="chevronLeft" [size]="18" [stroke]="2" />
+        </div>
+      </button>
+    }
+  </section>
+</ng-template>
 
 <!-- ================= ADHKAR READING SHEET ================= -->
 <app-sheet [open]="adhkarSheetOpen()" [title]="activeAdhkar()?.title ?? ''" (closed)="closeAdhkar()">
@@ -258,7 +228,7 @@
                   <app-icon name="check" [size]="16" [stroke]="2.2" />
                   <span>تم التكرار</span>
                 } @else {
-                  <span>{{ ar(getAdhkarCount(item.id)) }} / {{ ar(item.targetRepeat) }}</span>
+                  <span>{{ ar(getAdhkarCount(item.id)) }} من {{ ar(item.targetRepeat) }}</span>
                 }
               </button>
             </div>
@@ -267,23 +237,4 @@
       </div>
     </div>
   }
-</app-sheet>
-
-<!-- ================= NEW GROUP MODAL ================= -->
-<app-sheet [open]="newGroupSheetOpen()" title="مجموعة جديدة" (closed)="closeNewGroupModal()">
-  <div class="sheet-form">
-    <label class="form-label" for="newGroupNameInput">اسم المجموعة</label>
-    <input
-      id="newGroupNameInput"
-      type="text"
-      class="form-input"
-      placeholder="مثال: أوراد النوم، آيات السكينة..."
-      [(ngModel)]="newGroupName"
-      (keyup.enter)="saveNewGroup()"
-    />
-    <div class="form-actions">
-      <button type="button" class="btn primary" (click)="saveNewGroup()">حفظ المجموعة</button>
-      <button type="button" class="btn secondary" (click)="closeNewGroupModal()">إلغاء</button>
-    </div>
-  </div>
 </app-sheet>

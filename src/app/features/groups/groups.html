@@ -1,0 +1,214 @@
+<div class="groups-page">
+  <!-- Page Header -->
+  <header class="page-header">
+    <div class="header-main">
+      <h1 class="page-title">مجموعاتي</h1>
+      <span class="header-badge">{{ summary() }}</span>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="action-btn new-btn" (click)="openNewGroupModal()">
+        <app-icon name="plus" [size]="16" [stroke]="2.2" />
+        <span>مجموعة جديدة</span>
+      </button>
+    </div>
+  </header>
+
+  @if (groups().length > 1) {
+    <div class="toolbar-row">
+      <button type="button" class="toolbar-btn" (click)="toggleAll()">{{ allExpanded() ? 'طيّ الكل' : 'فتح الكل' }}</button>
+    </div>
+  }
+
+  <!-- Groups Accordion List -->
+  <div class="groups-list">
+    @for (g of groups(); track g.id) {
+      <section class="group-card" [class.is-expanded]="isGroupExpanded(g.id)">
+        <!-- Group Clickable Header -->
+        <div
+          class="group-header"
+          (click)="toggleGroup(g.id)"
+          role="button"
+          tabindex="0"
+          [attr.aria-expanded]="isGroupExpanded(g.id)"
+          (keydown.enter)="toggleGroup(g.id)"
+          (keydown.space)="toggleGroup(g.id); $event.preventDefault()"
+        >
+          <div class="group-icon-wrap" [class.leaf-tint]="g.icon === 'leaf'">
+            <app-icon [name]="g.icon || 'shield'" [size]="20" [stroke]="1.9" />
+          </div>
+
+          <div class="group-info">
+            <div class="group-title-row">
+              <h2 class="group-title">{{ g.title }}</h2>
+              <span class="passage-count-pill">{{ passagesLabel(g.passages.length) }}</span>
+            </div>
+            <p class="group-desc">{{ preview(g) }}</p>
+          </div>
+
+          <button type="button" class="more-btn" (click)="openGroupActions(g.id, $event)" (keydown.enter)="$event.stopPropagation()"
+            [attr.aria-label]="'خيارات ' + g.title">
+            <app-icon name="more" [size]="20" />
+          </button>
+          <div class="group-chevron" [class.rotated]="isGroupExpanded(g.id)">
+            <app-icon name="chevronDown" [size]="20" [stroke]="2.2" />
+          </div>
+        </div>
+
+        <!-- Expanded Dropdown Passages Content -->
+        @if (isGroupExpanded(g.id)) {
+          <div class="group-dropdown-content">
+            @if (g.passages.length === 0) {
+              <div class="empty-group">
+                <p class="empty-text">لا توجد مقاطع مضافة بعد في هذه المجموعة.</p>
+                <a routerLink="/quran" class="browse-quran-btn">
+                  <app-icon name="quran" [size]="16" [stroke]="1.8" />
+                  <span>تصفح المصحف وحدد آيات لإضافتها</span>
+                </a>
+              </div>
+            } @else {
+              <div class="passages-grid" cdkDropList cdkDropListLockAxis="y" (cdkDropListDropped)="dropPassage(g.id, $event)">
+                @for (p of g.passages; track p.id) {
+                  <article class="passage-card" cdkDrag>
+                    <div class="passage-top">
+                      @if (g.passages.length > 1) {
+                        <span class="grip" cdkDragHandle aria-label="اسحب لإعادة الترتيب"><app-icon name="grip" [size]="18" /></span>
+                      }
+                      <div class="passage-meta">
+                        <span class="passage-title">{{ p.title }}</span>
+                        <span class="passage-ref">{{ p.reference }}</span>
+                      </div>
+                      @if (getPassageCount(p.id) > 0) {
+                        <button
+                          type="button"
+                          class="reset-btn"
+                          (click)="resetPassage(p.id, $event)"
+                          title="إعادة التكرار"
+                          aria-label="إعادة التكرار"
+                        >
+                          <app-icon name="refresh" [size]="14" [stroke]="2" />
+                        </button>
+                      }
+                      <button type="button" class="more-btn" (click)="openPassageActions(g.id, p.id)" [attr.aria-label]="'خيارات ' + p.title">
+                        <app-icon name="more" [size]="18" />
+                      </button>
+                    </div>
+
+                    <p class="passage-text q">{{ p.text }}</p>
+
+                    <div class="passage-footer">
+                      <button
+                        type="button"
+                        class="repeat-btn"
+                        [class.done]="getPassageCount(p.id) >= p.targetRepeat"
+                        (click)="incrementPassage(p)"
+                      >
+                        @if (getPassageCount(p.id) >= p.targetRepeat) {
+                          <app-icon name="check" [size]="16" [stroke]="2.2" />
+                          <span>تمّ</span>
+                        } @else {
+                          <span>{{ ar(getPassageCount(p.id)) }} من {{ ar(p.targetRepeat) }}</span>
+                        }
+                      </button>
+                    </div>
+                  </article>
+                }
+              </div>
+            }
+          </div>
+        }
+      </section>
+    }
+  </div>
+
+  <!-- Also at the bottom of the list, where the thumb already is. -->
+  <button type="button" class="add-group-row" (click)="openNewGroupModal()">
+    <app-icon name="plus" [size]="18" [stroke]="2.2" />
+    <span>مجموعة جديدة</span>
+  </button>
+</div>
+
+<!-- Group actions -->
+<app-sheet [open]="!!editingGroup()" [title]="editingGroup()?.title ?? ''" (closed)="editGroupId.set(null)">
+  @if (editingGroup(); as g) {
+    <div class="edit-sheet">
+      <label class="edit-label" for="renameGroup">اسم المجموعة</label>
+      <div class="rename-row">
+        <input id="renameGroup" type="text" class="edit-input" [(ngModel)]="renameValue" (keyup.enter)="saveRename()" />
+        <button type="button" class="edit-primary" (click)="saveRename()" [disabled]="!renameValue.trim() || renameValue.trim() === g.title">حفظ</button>
+      </div>
+      <button type="button" class="edit-danger" (click)="deleteGroup()">
+        <app-icon name="trash" [size]="18" [stroke]="1.9" />
+        <span>حذف المجموعة</span>
+        @if (g.passages.length) {
+          <small>ومقاطعها</small>
+        }
+      </button>
+    </div>
+  }
+</app-sheet>
+
+<!-- Passage actions -->
+<app-sheet [open]="!!editingPassage()" [title]="editingPassage()?.passage?.title ?? ''" (closed)="editPassage.set(null)">
+  @if (editingPassage(); as e) {
+    <div class="edit-sheet">
+      <span class="edit-label">عدد مرات التكرار</span>
+      <div class="repeat-stepper">
+        <button type="button" (click)="stepRepeat(-1)" [disabled]="e.passage.targetRepeat <= 1" aria-label="أقل">
+          <app-icon name="minus" [size]="22" [stroke]="2.2" />
+        </button>
+        <span class="repeat-value">{{ ar(e.passage.targetRepeat) }}</span>
+        <button type="button" (click)="stepRepeat(1)" aria-label="أكثر">
+          <app-icon name="plus" [size]="22" [stroke]="2.2" />
+        </button>
+      </div>
+      <div class="repeat-presets">
+        @for (n of [1, 3, 7, 10, 33]; track n) {
+          <button type="button" [class.on]="e.passage.targetRepeat === n" (click)="setRepeat(n)">{{ ar(n) }}</button>
+        }
+      </div>
+
+      @if (otherGroups().length) {
+        <span class="edit-label">انقله إلى</span>
+        <div class="move-targets">
+          @for (t of otherGroups(); track t.id) {
+            <button type="button" (click)="movePassageTo(t.id)">
+              <app-icon [name]="t.icon || 'shield'" [size]="16" [stroke]="1.9" />
+              <span>{{ t.title }}</span>
+            </button>
+          }
+        </div>
+      }
+
+      <button type="button" class="edit-danger" (click)="deletePassage()">
+        <app-icon name="trash" [size]="18" [stroke]="1.9" />
+        <span>حذف من «{{ e.group.title }}»</span>
+      </button>
+    </div>
+  }
+</app-sheet>
+
+@if (undo(); as u) {
+  <div class="undo-toast" role="status">
+    <span>{{ u.label }}</span>
+    <button type="button" (click)="runUndo()">تراجع</button>
+  </div>
+}
+
+<!-- New Group Modal -->
+<app-sheet [open]="newGroupSheetOpen()" title="مجموعة جديدة" (closed)="closeNewGroupModal()">
+  <div class="sheet-form">
+    <label class="form-label" for="newGroupNameInput">اسم المجموعة</label>
+    <input
+      id="newGroupNameInput"
+      type="text"
+      class="form-input"
+      placeholder="مثال: أوراد النوم، آيات السكينة، الرقية الشرعية..."
+      [(ngModel)]="newGroupName"
+      (keyup.enter)="saveNewGroup()"
+    />
+    <div class="form-actions">
+      <button type="button" class="btn primary" (click)="saveNewGroup()">حفظ المجموعة</button>
+      <button type="button" class="btn secondary" (click)="closeNewGroupModal()">إلغاء</button>
+    </div>
+  </div>
+</app-sheet>

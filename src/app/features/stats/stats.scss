@@ -1,7 +1,7 @@
 .page {
   max-width: 1088px;
   margin: 0 auto;
-  padding: max(58px, env(safe-area-inset-top)) 20px 24px;
+  padding: max(20px, env(safe-area-inset-top)) 20px 24px;
   display: flex;
   flex-direction: column;
   gap: 14px;

@@ -37,6 +37,11 @@ export class ReadingTimer {
     this.store.setLastPage(page);
   }
 
+  /** Counts as interaction: following a recitation is reading even without touching the screen. */
+  ping() {
+    if (this.interval) this.onActivity();
+  }
+
   stop() {
     if (!this.interval) return;
     this.engine.close();

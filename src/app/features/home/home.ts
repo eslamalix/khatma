@@ -1,80 +1,128 @@
-import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { AdhkarToday } from '../../core/awrad/adhkar-today';
+import { BUILTIN_ADHKAR } from '../../core/awrad/awrad-data';
 import { ReadingStore } from '../../core/reading/reading.store';
-import { daysToFinish } from '../../core/reading/kpi';
-import { ar, clock, counted, DAYS, hoursAndMinutes, MINUTES, minSec, ordinal, PAGES, percent, weekdayDate } from '../../core/format';
-import { surahAtPage, surahName } from '../../core/quran/quran-meta';
+import { daysAtWird, WIRD_PRESETS } from '../../core/reading/wird';
+import { ar, counted, DAYS, hijriDate, hoursAndMinutes, MINUTES, ordinal, PAGES, percent, weekdayDate } from '../../core/format';
+import { surahAtPage, surahName, TOTAL_PAGES } from '../../core/quran/quran-meta';
+import { Icon } from '../../ui/icon';
+import { Sheet } from '../../ui/sheet';
+import { Account } from '../account/account';
 
-const COUNT_UP_MS = 1100;
+const RING_R = 52;
+const RING_C = 2 * Math.PI * RING_R;
 
+/**
+ * "Your day": today's wird first, the adhkar that are due, one thumb-reachable way back into the mushaf,
+ * and the khatma told as encouragement (how little time is left) rather than as pressure.
+ */
 @Component({
   selector: 'app-home',
-  imports: [RouterLink],
+  imports: [RouterLink, Icon, Sheet, Account],
   templateUrl: './home.html',
   styleUrl: './home.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Home {
   protected readonly store = inject(ReadingStore);
+  private readonly adhkar = inject(AdhkarToday);
   protected readonly k = this.store.kpis;
+  protected readonly wird = this.store.wird;
   protected readonly ar = ar;
   protected readonly percent = percent;
+  protected readonly presets = WIRD_PRESETS;
+  protected readonly ringC = RING_C;
+  protected readonly ringR = RING_R;
 
-  protected readonly today = weekdayDate(Date.now());
+  protected readonly greeting = new Date().getHours() < 12 ? 'صباح الخير' : 'مساء الخير';
+  protected readonly today = `${weekdayDate(Date.now())}، ${hijriDate(new Date())}`;
 
-  /** Khatma time animates up from zero on arrival, then follows the data. */
-  private readonly progress = signal(0);
-  protected readonly shownKhatmaMs = computed(() => this.k().khatmaMs * this.progress());
-  protected readonly counterParts = computed(() => clock(this.shownKhatmaMs()).split(':'));
-  protected readonly khatmaWords = computed(() => hoursAndMinutes(this.shownKhatmaMs()));
-  protected readonly remainingClock = computed(() => clock(this.k().remainingMs * this.progress()));
-  protected readonly avgText = computed(() => {
-    const secs = Math.round(this.k().avgMs / 1000);
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    if (!m) return counted(s, ['ثانية', 'ثانيتان', 'ثوانٍ', 'ثانية']);
-    return s ? `${counted(m, MINUTES)} و${counted(s, ['ثانية', 'ثانيتان', 'ثوانٍ', 'ثانية'])}` : counted(m, MINUTES);
-  });
-  protected readonly khatmaOrdinal = computed(() => ordinal(this.store.state().currentKhatma));
-  protected readonly pagesReadText = computed(() => `${ar(this.k().pagesRead)} من ${ar(604)} صفحة`);
-  protected readonly pagesLeftText = computed(() => `${counted(this.k().remainingPages, PAGES)} متبقية`);
   protected readonly lastPage = computed(() => this.store.state().lastPage);
   protected readonly lastSurah = computed(() => surahName(surahAtPage(this.lastPage())));
   protected readonly hasStarted = computed(() => this.store.readings().length > 0);
 
-  protected readonly insight = this.store.insight;
-  protected readonly insightMinutes = computed(() => {
-    const i = this.insight();
-    return i ? Math.max(1, Math.round(i.durationMs / 60_000)) : 0;
-  });
-  protected readonly insightMinutesText = computed(() => counted(this.insightMinutes(), MINUTES));
-  protected readonly insightSurah = computed(() => surahName(this.insight()?.surah ?? 0));
-  protected readonly insightDays = computed(() => counted(daysToFinish(this.k().khatmaMs, this.insightMinutes()), DAYS));
-
-  protected readonly dailyMinutes = signal(30);
-  protected readonly dailyMinutesText = computed(() => counted(this.dailyMinutes(), MINUTES));
-  protected readonly dailyDaysText = computed(() => counted(daysToFinish(this.k().khatmaMs, this.dailyMinutes()), DAYS));
-  protected readonly sliderFill = computed(() => `${((this.dailyMinutes() - 5) / 115) * 100}%`);
-  protected readonly minSec = minSec;
-
-  constructor() {
-    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let frame = 0;
-    const destroyRef = inject(DestroyRef);
-    destroyRef.onDestroy(() => cancelAnimationFrame(frame));
-    effect(() => {
-      if (!this.store.ready() || reduce) return this.progress.set(1);
-      const start = performance.now();
-      const step = (t: number) => {
-        const x = Math.min(1, (t - start) / COUNT_UP_MS);
-        this.progress.set(1 - Math.pow(1 - x, 3));
-        if (x < 1) frame = requestAnimationFrame(step);
-      };
-      frame = requestAnimationFrame(step);
-    });
+  /** Minutes for `pages` at the reader's own pace. */
+  private minutesFor(pages: number) {
+    const min = Math.round((pages * this.k().avgMs) / 60_000);
+    if (min < 1) return 'أقل من دقيقة';
+    return min === 2 ? 'حوالي دقيقتين' : `حوالي ${counted(min, MINUTES)}`;
   }
 
-  protected setDaily(event: Event) {
-    this.dailyMinutes.set(+(event.target as HTMLInputElement).value);
+  protected readonly ringOffset = computed(() => RING_C * (1 - (this.wird()?.ratio ?? 0)));
+  protected readonly wirdTitle = computed(() => (this.wird()?.done ? 'أتممت وردك اليوم' : 'ورد اليوم'));
+  protected readonly wirdSub = computed(() => {
+    const w = this.wird();
+    if (!w) return '';
+    if (w.done) return w.read > w.goal ? `وزدت ${counted(w.read - w.goal, PAGES)}، بارك الله فيك` : 'بارك الله فيك';
+    if (!w.read) return `${counted(w.goal, PAGES)}، ${this.minutesFor(w.goal)}`;
+    return `باقي ${counted(w.remaining, PAGES)}، ${this.minutesFor(w.remaining)}`;
+  });
+  protected readonly streakText = computed(() => {
+    const n = this.store.streak();
+    return n >= 2 ? `${counted(n, DAYS)} متتالية` : '';
+  });
+
+  /** The morning or evening adhkar, only while it is their time and they are not yet done. */
+  protected readonly dueAdhkar = computed(() => {
+    const period = this.adhkar.periodNow();
+    const cat = BUILTIN_ADHKAR.find((c) => c.id === period);
+    return cat && !this.adhkar.doneToday().has(cat.id) ? cat : null;
+  });
+
+  protected readonly khatmaTitle = computed(() => `ختمتك ${ordinal(this.store.state().currentKhatma)}`);
+  protected readonly khatmaDone = computed(() => 1 - this.k().remainingRatio);
+  protected readonly pagesReadText = computed(() => `قرأت ${ar(this.k().pagesRead)} من ${ar(TOTAL_PAGES)} صفحة`);
+  protected readonly remainingTimeText = computed(() => {
+    const { hours, minutes } = hoursAndMinutes(this.k().remainingMs);
+    return [hours, minutes].filter(Boolean).join(' و');
+  });
+  protected readonly finishText = computed(() => {
+    const goal = this.store.state().dailyGoalPages;
+    if (!goal) return '';
+    return `بوردك تختمها خلال ${counted(daysAtWird(this.k().remainingPages, goal), DAYS)} بإذن الله.`;
+  });
+
+  protected readonly insight = this.store.insight;
+  protected readonly insightText = computed(() => {
+    const i = this.insight();
+    if (!i?.change || Math.abs(i.change) < 0.03) return null;
+    const pct = percent(Math.abs(i.change));
+    return i.change > 0
+      ? `قرأت سورة ${surahName(i.surah)} أسرع ${pct} من ختمتك السابقة`
+      : `أخذت سورة ${surahName(i.surah)} وقتاً أطول ${pct} هذه المرة، والتأني حسن`;
+  });
+
+  // Choosing the daily wird
+  protected readonly goalOpen = signal(false);
+  protected readonly draftGoal = signal(5);
+  protected readonly draftMinutes = computed(() => this.minutesFor(this.draftGoal()));
+  protected readonly draftFinish = computed(() => counted(daysAtWird(TOTAL_PAGES, this.draftGoal()), DAYS));
+
+  protected openGoal() {
+    this.draftGoal.set(this.store.state().dailyGoalPages ?? 5);
+    this.goalOpen.set(true);
+  }
+
+  protected stepGoal(delta: number) {
+    this.draftGoal.update((g) => Math.min(60, Math.max(1, g + delta)));
+  }
+
+  /** Noun after a numeral: ٥ صفحات، ١٢ صفحة. */
+  protected pagesNoun(n: number) {
+    return n === 1 ? 'صفحة' : n === 2 ? 'صفحتان' : n % 100 >= 3 && n % 100 <= 10 ? 'صفحات' : 'صفحة';
+  }
+
+  protected presetLabel(pages: number) {
+    return pages === 20 ? 'جزء تقريباً' : pages === 2 ? 'صفحتان' : 'صفحات';
+  }
+
+  protected presetMinutes(pages: number) {
+    return this.minutesFor(pages);
+  }
+
+  protected saveGoal() {
+    this.store.setDailyGoal(this.draftGoal());
+    this.goalOpen.set(false);
   }
 }

@@ -1,9 +1,10 @@
 import { computed, inject, Injectable, isDevMode, signal } from '@angular/core';
 import { localDb } from '../db/local-db';
-import { CloudSync } from '../sync/cloud-sync';
+import { CloudAccount, CloudSync } from '../sync/cloud-sync';
 import { clampPage } from '../quran/quran-meta';
 import { demoData } from '../dev/demo-data';
 import { computeKpis, latestSurahInsight, pageRows } from './kpi';
+import { wirdStreak, wirdToday } from './wird';
 import { BackgroundTheme, DEFAULT_STATE, Reading, ReadingMode, ReadingState } from './reading';
 import { PageVisit } from '../timing/timing-engine';
 
@@ -23,8 +24,21 @@ export class ReadingStore {
   readonly kpis = computed(() => computeKpis(this.readings(), this.state().currentKhatma));
   readonly insight = computed(() => latestSurahInsight(this.readings(), this.state().currentKhatma));
   readonly rows = computed(() => pageRows(this.readings(), this.state().currentKhatma));
+  /** Today's wird progress, or null before a daily goal is chosen. */
+  readonly wird = computed(() => {
+    const goal = this.state().dailyGoalPages;
+    return goal ? wirdToday(this.readings(), goal) : null;
+  });
+  readonly streak = computed(() => {
+    const goal = this.state().dailyGoalPages;
+    return goal ? wirdStreak(this.readings(), goal) : 0;
+  });
 
   private readonly loading = this.load();
+
+  constructor() {
+    this.cloud.onAccount((account, isNewHere) => void this.mergeAccount(account, isNewHere));
+  }
 
   whenReady() {
     return this.loading;
@@ -40,7 +54,6 @@ export class ReadingStore {
 
   setLastPage(page: number) {
     this.patchState({ lastPage: clampPage(page), lastReadAt: Date.now() });
-    if (!this.demo) this.cloud.pushStatus(this.state());
   }
 
   setFontScale(fontScale: number) {
@@ -49,6 +62,10 @@ export class ReadingStore {
 
   setBackgroundTheme(backgroundTheme: BackgroundTheme) {
     this.patchState({ backgroundTheme });
+  }
+
+  setDailyGoal(pages: number) {
+    this.patchState({ dailyGoalPages: Math.min(604, Math.max(1, Math.round(pages))) });
   }
 
   setReadingMode(readingMode: ReadingMode) {
@@ -61,14 +78,50 @@ export class ReadingStore {
 
   private patchState(patch: Partial<ReadingState>) {
     this.state.update((s) => ({ ...s, ...patch }));
-    if (!this.demo) localDb().then((db) => db.put('kv', this.state(), STATE_KEY));
+    if (this.demo) return;
+    localDb().then((db) => db.put('kv', this.state(), STATE_KEY));
+    this.cloud.pushState(this.state());
+  }
+
+  /**
+   * Signed into an account this device has not seen (e.g. Google on a second phone): download it,
+   * add what is missing here, upload what is missing there, and keep whichever reading position is newer.
+   */
+  private async mergeAccount(account: CloudAccount, isNewHere: boolean) {
+    if (this.demo || !isNewHere) return;
+    await this.loading;
+    const snap = await this.cloud.pull().catch((err) => (console.warn('[sync] pull', err), null));
+    if (!snap) return;
+
+    const localIds = new Set(this.readings().map((r) => r.id));
+    const incoming = snap.readings.filter((r) => !localIds.has(r.id));
+    if (incoming.length) {
+      this.readings.update((list) => [...list, ...incoming].sort((a, b) => a.endAt - b.endAt));
+      const db = await localDb();
+      const tx = db.transaction('readings', 'readwrite');
+      for (const r of incoming) tx.store.put(r);
+      await tx.done;
+    }
+
+    const cloudIds = new Set(snap.readings.map((r) => r.id));
+    const missing = this.readings().filter((r) => !cloudIds.has(r.id));
+    if (missing.length) this.cloud.pushReadings(missing, (ids) => this.markSynced(ids));
+
+    const cloudState = snap.state;
+    if (cloudState && (cloudState.lastReadAt ?? 0) > (this.state().lastReadAt ?? 0)) {
+      this.state.update((s) => ({ ...s, ...cloudState }));
+      (await localDb()).put('kv', this.state(), STATE_KEY);
+    } else {
+      this.cloud.pushState(this.state());
+    }
+    console.info(`[sync] merged account ${account.uid}: +${incoming.length} here, +${missing.length} there`);
   }
 
   private async load() {
     if (this.demo) {
       const { readings, state } = demoData();
       this.readings.set(readings);
-      this.state.set(state);
+      this.state.set({ ...DEFAULT_STATE, ...state });
       this.ready.set(true);
       return;
     }

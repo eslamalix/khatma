@@ -36,4 +36,40 @@ describe('AwradStore', () => {
     expect(tahseen?.passages.some((p) => p.id === passage.id)).toBe(true);
     expect(passage.targetRepeat).toBe(3);
   });
+
+  it('renames, deletes and restores a group in place', () => {
+    store.renameGroup('tahseen', 'حصني');
+    expect(store.groups()[0].title).toBe('حصني');
+    const removed = store.deleteGroup('tahseen');
+    expect(store.groups().some((g) => g.id === 'tahseen')).toBe(false);
+    store.restoreGroup(removed!.group, removed!.index);
+    expect(store.groups()[0].id).toBe('tahseen');
+  });
+
+  it('keeps an empty list after every group is deleted', () => {
+    for (const g of store.groups()) store.deleteGroup(g.id);
+    expect(new AwradStore().groups()).toHaveLength(0);
+  });
+
+  it('removes, restores, reorders and re-targets passages', () => {
+    const ids = store.groups()[0].passages.map((p) => p.id);
+    const removed = store.removePassage('tahseen', ids[1]);
+    expect(store.groups()[0].passages.map((p) => p.id)).toEqual([ids[0], ...ids.slice(2)]);
+    store.restorePassage('tahseen', removed!.passage, removed!.index);
+    expect(store.groups()[0].passages.map((p) => p.id)).toEqual(ids);
+
+    store.movePassage('tahseen', 0, 2);
+    expect(store.groups()[0].passages.map((p) => p.id).slice(0, 3)).toEqual([ids[1], ids[2], ids[0]]);
+
+    store.setPassageRepeat('tahseen', ids[0], 7);
+    expect(store.groups()[0].passages.find((p) => p.id === ids[0])?.targetRepeat).toBe(7);
+  });
+
+  it('moves a passage to another group', () => {
+    const [from, to] = store.groups();
+    const passageId = from.passages[0].id;
+    store.movePassageToGroup(from.id, passageId, to.id);
+    expect(store.groups()[0].passages.some((p) => p.id === passageId)).toBe(false);
+    expect(store.groups()[1].passages.at(-1)?.id).toBe(passageId);
+  });
 });

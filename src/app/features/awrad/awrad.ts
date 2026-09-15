@@ -1,36 +1,42 @@
-import { ChangeDetectionStrategy, Component, computed, HostListener, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, HostListener, inject, input, signal, untracked } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import {
   AdhkarCategory,
-  AyahGroup,
   BUILTIN_ADHKAR,
   calcDashArray,
   DEFAULT_DHIKR_SEQUENCE,
   DhikrItem,
   getNextDhikr,
-  GroupPassage,
 } from '../../core/awrad/awrad-data';
-import { AwradStore } from '../../core/awrad/awrad.store';
-import { ar } from '../../core/format';
+import { ar, counted, PASSAGES } from '../../core/format';
+import { AdhkarToday } from '../../core/awrad/adhkar-today';
 import { Icon } from '../../ui/icon';
 import { Sheet } from '../../ui/sheet';
-import { FormsModule } from '@angular/forms';
+import { AwradStore } from '../../core/awrad/awrad.store';
+
+/** Pause on a full ring before moving to the next dhikr, so the 33rd tap is felt and seen. */
+const COMPLETE_HOLD_MS = 650;
 
 @Component({
   selector: 'app-awrad',
-  imports: [Icon, Sheet, FormsModule],
+  imports: [Icon, Sheet, RouterLink, NgTemplateOutlet],
   templateUrl: './awrad.html',
   styleUrl: './awrad.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Awrad {
-  private readonly awradStore = inject(AwradStore);
   protected readonly ar = ar;
+  protected readonly passages = (n: number) => (n ? counted(n, PASSAGES) : 'لا مقاطع بعد');
+  protected readonly awradStore = inject(AwradStore);
 
   // Tasbeeh
   readonly currentDhikr = signal<DhikrItem>(DEFAULT_DHIKR_SEQUENCE[0]);
   readonly count = signal<number>(0);
   readonly totalTasbeeh = signal<number>(0);
   readonly isPulsing = signal<boolean>(false);
+  /** True for the short moment a dhikr's ring is full, before the next one starts. */
+  readonly completing = signal(false);
   readonly dhikrOptions = DEFAULT_DHIKR_SEQUENCE;
 
   // Progress rings
@@ -42,31 +48,40 @@ export class Awrad {
     calcDashArray(this.count(), this.currentDhikr().target, 116)
   );
 
-  // Groups
-  readonly groups = this.awradStore.groups;
-  readonly activeGroup = signal<AyahGroup | null>(null);
-  readonly groupSheetOpen = signal<boolean>(false);
-  readonly passageCounts = signal<Record<string, number>>({});
-
   // Adhkar
   readonly adhkarCategories = signal<readonly AdhkarCategory[]>(BUILTIN_ADHKAR);
   readonly activeAdhkar = signal<AdhkarCategory | null>(null);
   readonly adhkarSheetOpen = signal<boolean>(false);
   readonly adhkarCounts = signal<Record<string, number>>({});
+  private readonly adhkarToday = inject(AdhkarToday);
+  protected readonly periodNow = this.adhkarToday.periodNow();
+  /** Adhkar categories completed today, remembered on this device. */
+  readonly doneToday = this.adhkarToday.doneToday;
+  /** `/awrad?open=morning` (from the home screen) opens that adhkar straight away. */
+  readonly open = input<string>();
+  /** The adhkar whose time it is comes first. */
+  protected readonly sortedAdhkar = computed(() =>
+    [...this.adhkarCategories()].sort((a, b) => Number(b.id === this.periodNow) - Number(a.id === this.periodNow)),
+  );
 
-  // New Group modal
-  readonly newGroupSheetOpen = signal<boolean>(false);
-  newGroupName = '';
+  constructor() {
+    effect(() => {
+      const id = this.open();
+      const cat = BUILTIN_ADHKAR.find((c) => c.id === id);
+      if (cat) untracked(() => this.openAdhkar(cat));
+    });
+  }
 
   @HostListener('window:keydown', ['$event'])
   handleKeydown(e: KeyboardEvent) {
-    if (e.code === 'Space' && !this.groupSheetOpen() && !this.adhkarSheetOpen() && !this.newGroupSheetOpen()) {
+    if (e.code === 'Space' && !this.adhkarSheetOpen()) {
       e.preventDefault();
       this.increment();
     }
   }
 
   increment() {
+    if (this.completing()) return;
     // Haptic feedback if available on mobile
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate(15);
@@ -80,13 +95,17 @@ export class Awrad {
     this.totalTasbeeh.update((t) => t + 1);
 
     if (nextVal >= this.currentDhikr().target) {
-      // Transition to next dhikr automatically (33 -> 33 -> 34)
+      // Show the full ring, then move to the next dhikr automatically (33 -> 33 -> 34)
       if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
         navigator.vibrate([30, 40, 30]);
       }
-      const nextDhikr = getNextDhikr(this.currentDhikr().id);
-      this.currentDhikr.set(nextDhikr);
-      this.count.set(0);
+      this.count.set(nextVal);
+      this.completing.set(true);
+      setTimeout(() => {
+        this.currentDhikr.set(getNextDhikr(this.currentDhikr().id));
+        this.count.set(0);
+        this.completing.set(false);
+      }, COMPLETE_HOLD_MS);
     } else {
       this.count.set(nextVal);
     }
@@ -101,28 +120,15 @@ export class Awrad {
     this.count.set(0);
   }
 
-  // Groups management
-  openGroup(group: AyahGroup) {
-    this.activeGroup.set(group);
-    this.groupSheetOpen.set(true);
-  }
-
-  closeGroup() {
-    this.groupSheetOpen.set(false);
-  }
-
-  incrementPassage(p: GroupPassage) {
-    const cur = this.passageCounts()[p.id] ?? 0;
-    if (cur < p.targetRepeat) {
-      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-        navigator.vibrate(15);
-      }
-      this.passageCounts.update((map) => ({ ...map, [p.id]: cur + 1 }));
-    }
-  }
-
   // Adhkar management
   openAdhkar(category: AdhkarCategory) {
+    // Already finished today: show it as finished rather than starting from zero.
+    if (this.doneToday().has(category.id)) {
+      this.adhkarCounts.update((map) => ({
+        ...map,
+        ...Object.fromEntries(category.items.map((i) => [i.id, i.targetRepeat])),
+      }));
+    }
     this.activeAdhkar.set(category);
     this.adhkarSheetOpen.set(true);
   }
@@ -138,30 +144,19 @@ export class Awrad {
         navigator.vibrate(15);
       }
       this.adhkarCounts.update((map) => ({ ...map, [itemId]: cur + 1 }));
+      this.checkAdhkarDone();
     }
   }
 
-  openNewGroupModal() {
-    this.newGroupName = '';
-    this.newGroupSheetOpen.set(true);
-  }
-
-  closeNewGroupModal() {
-    this.newGroupSheetOpen.set(false);
-  }
-
-  getPassageCount(id: string): number {
-    return this.passageCounts()[id] || 0;
+  private checkAdhkarDone() {
+    const cat = this.activeAdhkar();
+    if (!cat || this.doneToday().has(cat.id)) return;
+    if (!cat.items.every((i) => this.getAdhkarCount(i.id) >= i.targetRepeat)) return;
+    this.adhkarToday.markDone(cat.id);
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate([20, 60, 20, 60, 40]);
   }
 
   getAdhkarCount(id: string): number {
     return this.adhkarCounts()[id] || 0;
-  }
-
-  saveNewGroup() {
-    const name = this.newGroupName.trim();
-    if (!name) return;
-    this.awradStore.addGroup(name);
-    this.closeNewGroupModal();
   }
 }

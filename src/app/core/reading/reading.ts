@@ -24,6 +24,8 @@ export interface ReadingState {
   fontScale: number;
   backgroundTheme: BackgroundTheme;
   readingMode: ReadingMode;
+  /** Daily wird in pages; null until the reader chooses one. */
+  dailyGoalPages: number | null;
 }
 
 export const DEFAULT_STATE: ReadingState = {
@@ -33,4 +35,5 @@ export const DEFAULT_STATE: ReadingState = {
   fontScale: 1,
   backgroundTheme: 'auto',
   readingMode: 'horizontal',
+  dailyGoalPages: null,
 };

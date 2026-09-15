@@ -9,15 +9,17 @@ import {
   getWeekData,
   toDateStr,
 } from '../../core/calendar/calendar-data';
-import { ar, dayMonth, timeOfDay } from '../../core/format';
+import { ar, dayMonth, hijriDate, hijriMonthSpan, timeOfDay } from '../../core/format';
 import { surahAtPage, surahName } from '../../core/quran/quran-meta';
 import { Icon } from '../../ui/icon';
+
+import { RouterLink } from '@angular/router';
 
 type CalendarView = 'month' | 'week' | 'day';
 
 @Component({
   selector: 'app-calendar',
-  imports: [Icon],
+  imports: [Icon, RouterLink],
   templateUrl: './calendar.html',
   styleUrl: './calendar.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -55,6 +57,9 @@ export class Calendar {
 
   protected readonly weekdayHeaders = AR_WEEKDAYS_SHORT;
 
+  protected readonly hijriMonth = computed(() => hijriMonthSpan(this.currentMonth().year, this.currentMonth().month));
+  protected readonly hijriDay = computed(() => hijriDate(this.selectedDate()));
+
   protected readonly lastPosition = computed(() => {
     const s = this.store.state();
     if (!s.lastPage) return null;
@@ -83,6 +88,13 @@ export class Calendar {
   selectDay(day: DaySummary | null) {
     if (!day) return;
     this.selectedDate.set(new Date(day.date));
+  }
+
+  /** Phone: a tapped day opens that day's sessions. */
+  openDay(day: DaySummary | null) {
+    if (!day) return;
+    this.selectDay(day);
+    this.viewMode.set('day');
   }
 
   selectDateStr(dateStr: string) {

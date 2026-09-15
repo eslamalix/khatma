@@ -15,13 +15,14 @@ Decisions and their reasons: **`docs/DECISIONS.md`** (the source of truth). Appr
 | Angular 21 app, zoneless, signals, SCSS, RTL, light/dark tokens | done |
 | Shell: phone tab bar / tablet icon sidebar / desktop sidebar, view transitions | done |
 | Home: background khatma counter (count-up), remaining countdown, continue button, surah insight + daily-minutes calculator | done |
-| Quran reader: 604-page horizontal pager (scroll-snap, virtualised ±2), KPI bar, page·surah·juz pill + jump sheet, desktop side arrows, keyboard arrows, tap-centre immersive mode, pinch / Ctrl+wheel / sheet font size | done |
+| Quran reader: 604-page horizontal pager (scroll-snap, virtualised ±2), KPI bar, page·surah·juz pill + jump sheet, desktop side arrows, keyboard arrows, pinch / Ctrl+wheel / sheet font size | done |
 | Timing engine (visibility, 3-min idle with 90 s credit, 10 s minimum) + reading store (IndexedDB) | done, unit-tested |
 | Stats: tiles, improvement vs previous khatma, 604-row virtual table with surah/juz filter, new-khatma sheet | done |
 | Firebase: lazy-loaded, anonymous auth, readings + `status/public` mirrored to Firestore; `firestore.rules`, `firebase.json`, `.firebaserc` | code done — **console setup pending (see §4)** |
 | Calendar | month heatmap, week bars, 24h dial clock, sessions grouping, responsive 2-column desktop | done, unit-tested |
 | Awrad | smart tasbeeh with haptics/spacebar/auto-advance (33/33/34), groups sheets (Tahseen, Ruqyah), morning/evening adhkar | done, unit-tested |
 | Reading settings & Multiple ayah selection | unified settings sheet (cream/white/dark/auto themes, horizontal/vertical mode, font scale), zero-overlap continuous translucent highlight via linear-gradient transparent vertical bands (7px) & 2.35 line-height, bottom floating action bar with `+` / `-` range stepper, copy with feedback, save to groups with repeat selector 1/3/7 and new group creation, synced with Awrad via `AwradStore`, bottom nav gracefully tucks away while selecting | done, unit-tested |
+| Recitation player (T20) + tafsir cache (T21) | floating mini player above page nav → expandable sheet (reciter, repeat per ayah, loop range, speed); continuous ayah→surah→page playback with basmala, auto page turn + scroll to playing ayah, Media Session lock-screen controls, retry on network error; header headphones button plays the visible page | done, unit-tested (`quran-audio.spec.ts`) |
 
 ## 3. Run / test
 ```bash
@@ -35,12 +36,18 @@ Code map: `src/app/core` (quran meta + page loading, timing engine, reading stor
 
 Rules kept from design review: Arabic comma instead of `·` next to Arabic digits; "أسرع/أبطأ ٪" words instead of arrows; timers in `dir="ltr"`; counted nouns via `counted()` in `core/format.ts`.
 
-## 4. Pending on the user (Firebase console, project `quraan-8ae72`)
-1. Authentication → Sign-in method → enable **Anonymous** (currently returns `auth/configuration-not-found`; the app stays device-only until then).
-2. Firestore Database → create (production mode), then deploy rules: `npx firebase-tools deploy --only firestore:rules`.
-3. Optional hosting: `npx ng build && npx firebase-tools deploy --only hosting`.
-4. Restrict the web API key to the app's domains in Google Cloud console.
-Also open: app name + icon, adhkar text review (phase 2), licence check for the Quran data source before launch.
+## 4. Firebase (project `quraan-8ae72`) — live since 2026-09-15
+Done from the CLI (`npm i -g firebase-tools`, `firebase login` as the owner account):
+- Auth providers from `firebase.json` → `auth.providers` (anonymous + Google, `firebase deploy --only auth`). Authorized domains: firebaseapp, web.app, `eslamalix.github.io`, `localhost` (added with firebase-tools `gcp/auth` `updateAuthDomains`; add any new domain the same way).
+- Stay on the free Spark plan (owner requirement): no Cloud Functions or other Blaze features.
+- Firestore `(default)` database, Standard edition, location **nam5** (created automatically by the first `firestore:rules` deploy; location is permanent, acceptable because sync is offline-first and batched).
+- `firestore.rules` deployed; verified: a user can write `users/{own uid}/…`, another uid is rejected (403).
+- Verified on https://eslamalix.github.io/quraanApp/: anonymous sign-in and `users/{uid}/status/public` written.
+
+Redeploy config: `firebase deploy --only auth,firestore:rules --project quraan-8ae72`.
+Web app hosting is GitHub Pages from the `gh-pages` branch: `MSYS_NO_PATHCONV=1 npx ng build --base-href /quraanApp/`, copy `dist/quran-kpi/browser` to `gh-pages` with `404.html` (copy of index) and `.nojekyll`.
+
+Still open for the owner: restrict the web API key to `eslamalix.github.io` in Google Cloud console; app name + icon; adhkar text review; licence check for the Quran data source before launch.
 
 ## 5. Next
 Phase 3 (`docs/DECISIONS.md` §3):

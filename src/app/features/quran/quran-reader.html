@@ -1,25 +1,38 @@
 <header class="kpis chrome-top">
-  <div class="kpi">
-    <span class="kpi-label">متوسط الصفحة</span>
-    <span class="kpi-value">{{ avg() }}</span>
-  </div>
+  @if (store.wird(); as w) {
+    <div class="kpi" [class.wird-done]="w.done">
+      <span class="kpi-label">ورد اليوم</span>
+      <span class="kpi-value">
+        @if (w.done) {
+          <app-icon name="check" [size]="15" [stroke]="2.6" /> {{ ar(w.read) }}
+        } @else {
+          {{ ar(w.read) }} من {{ ar(w.goal) }}
+        }
+      </span>
+    </div>
+  } @else {
+    <div class="kpi">
+      <span class="kpi-label">المدة المتبقية</span>
+      <span class="kpi-value">{{ remainingTime() }}</span>
+    </div>
+  }
   <span class="divider"></span>
   <div class="kpi">
-    <span class="kpi-label">المتبقي</span>
+    <span class="kpi-label">المتبقي من الختمة</span>
     <span class="kpi-value">{{ remainingPct() }}</span>
   </div>
   <span class="divider"></span>
   <div class="kpi">
-    <span class="kpi-label">المدة المتبقية</span>
-    <span class="kpi-value">{{ remainingTime() }}</span>
+    <span class="kpi-label">متوسط الصفحة</span>
+    <span class="kpi-value">{{ avg() }}</span>
   </div>
-  <button type="button" class="settings-trigger" (click)="settingsOpen.set(true)" aria-label="إعدادات القراءة">
-    <app-icon name="sliders" [size]="20" [stroke]="1.8" />
-  </button>
+  @if (store.wird(); as w) {
+    <span class="wird-line" aria-hidden="true"><span [style.transform]="'scaleX(' + w.ratio + ')'"></span></span>
+  }
 </header>
 
 <div #pager class="pager" [class.vertical]="readingMode() === 'vertical'" tabindex="0" aria-roledescription="المصحف"
-  (scroll)="onScroll()" (click)="onTap($event)" (wheel)="onWheel($event)"
+  (scroll)="onScroll()" (click)="onTap()" (wheel)="onWheel($event)"
   (touchstart)="onTouchStart($event)" (touchmove)="onTouchMove($event)" (touchend)="onTouchEnd()"
   (touchcancel)="onTouchEnd()">
   <div class="track"
@@ -34,6 +47,7 @@
           [page]="p"
           [fontScale]="scale()"
           [selectedRange]="selectedRange()"
+          [playingAyah]="audio.current()"
           (ayahClicked)="onAyahClicked($event)" />
       </div>
     }
@@ -47,9 +61,11 @@
   <app-icon name="chevronLeft" [size]="24" [stroke]="2" />
 </button>
 
+<!-- Everything the reader reaches for often sits in the bottom bar, within one thumb's reach. -->
 <nav class="nav chrome-bottom" aria-label="التنقل في المصحف">
-  <button type="button" class="arrow" (click)="go(-1)" [disabled]="visiblePage() <= 1" aria-label="الصفحة السابقة">
-    <app-icon name="chevronRight" [size]="22" [stroke]="2" />
+  <button type="button" class="nav-btn" [class.active]="audio.isActive()" (click)="listen()"
+    [attr.aria-label]="audio.isActive() ? 'تفاصيل التلاوة' : 'استمع لهذه الصفحة'">
+    <app-icon name="headphones" [size]="22" [stroke]="1.9" />
   </button>
   <div class="pill">
     <button type="button" class="seg strong" (click)="openJump('page')">{{ ar(visiblePage()) }}</button>
@@ -58,42 +74,73 @@
     <span class="sep"></span>
     <button type="button" class="seg muted" (click)="openJump('juz')">{{ juzLabel() }} <app-icon name="chevronDown" [size]="14" [stroke]="2" /></button>
   </div>
-  <button type="button" class="arrow" (click)="go(1)" [disabled]="visiblePage() >= total" aria-label="الصفحة التالية">
-    <app-icon name="chevronLeft" [size]="22" [stroke]="2" />
+  <button type="button" class="nav-btn" (click)="settingsOpen.set(true)" aria-label="إعدادات القراءة">
+    <app-icon name="sliders" [size]="21" [stroke]="1.9" />
   </button>
 </nav>
+
+<app-quran-player />
 
 <!-- Ayah Floating Action Bar -->
 @if (selectedRange(); as r) {
   <aside class="ayah-bar" role="toolbar" aria-label="إجراءات الآيات المحددة">
-    <button type="button" class="ayah-close" (click)="selectedRange.set(null)" aria-label="إلغاء التحديد">
-      <app-icon name="close" [size]="14" [stroke]="2.2" />
-    </button>
-    <span class="bar-sep"></span>
-    <div class="ayah-bar-info">
+    <div class="ayah-bar-head">
       <span class="ayah-badge">{{ selectionLabel() }}</span>
       <div class="stepper" role="group" aria-label="تعديل نطاق الآيات">
         <button type="button" class="step-btn" (click)="expandSelection(-1)" [disabled]="!canShrink()" aria-label="تقليص آية">
-          <app-icon name="minus" [size]="13" [stroke]="2.4" />
+          <app-icon name="minus" [size]="14" [stroke]="2.4" />
         </button>
         <button type="button" class="step-btn" (click)="expandSelection(1)" [disabled]="!canExpand()" aria-label="إضافة آية تالية">
-          <app-icon name="plus" [size]="13" [stroke]="2.4" />
+          <app-icon name="plus" [size]="14" [stroke]="2.4" />
         </button>
       </div>
+      <button type="button" class="ayah-close" (click)="selectedRange.set(null)" aria-label="إلغاء التحديد">
+        <app-icon name="close" [size]="14" [stroke]="2.2" />
+      </button>
     </div>
-    <span class="bar-sep"></span>
     <div class="ayah-bar-actions">
-      <button type="button" class="bar-btn" (click)="copySelection()" aria-label="نسخ الآيات">
-        <app-icon [name]="copiedToast() ? 'check' : 'copy'" [size]="14" [stroke]="2" />
+      <button type="button" class="bar-btn" (click)="playSelection()">
+        <app-icon name="play" [size]="18" />
+        <span>استمع</span>
+      </button>
+      <button type="button" class="bar-btn" (click)="openTafsir()">
+        <app-icon name="quran" [size]="18" [stroke]="1.9" />
+        <span>التفسير</span>
+      </button>
+      <button type="button" class="bar-btn" (click)="copySelection()">
+        <app-icon [name]="copiedToast() ? 'check' : 'copy'" [size]="18" [stroke]="1.9" />
         <span>{{ copiedToast() ? 'تم النسخ' : 'نسخ' }}</span>
       </button>
-      <button type="button" class="bar-btn primary" (click)="openSaveToGroup()" aria-label="حفظ في مجموعة">
-        <app-icon name="bookmark" [size]="14" [stroke]="2" />
-        <span>حفظ في مجموعة</span>
+      <button type="button" class="bar-btn primary" (click)="openSaveToGroup()">
+        <app-icon name="bookmark" [size]="18" [stroke]="1.9" />
+        <span>حفظ</span>
       </button>
     </div>
   </aside>
 }
+
+<!-- Tafsir Sheet -->
+<app-sheet [open]="tafsirOpen()" [title]="'التفسير الميسر — ' + tafsirRef()" (closed)="tafsirOpen.set(false)">
+  <div class="tafsir-sheet-body">
+    @if (tafsirLoading()) {
+      <div class="tafsir-loading">
+        <p>جارٍ تحميل التفسير الميسر...</p>
+      </div>
+    } @else {
+      @for (t of tafsirItems(); track t.ayah) {
+        <div class="tafsir-text-box">
+          @if (tafsirItems().length > 1) {
+            <span class="tafsir-ayah">الآية {{ ar(t.ayah) }}</span>
+          }
+          <p class="tafsir-paragraph">{{ t.text }}</p>
+        </div>
+      }
+      <div class="tafsir-footer">
+        <button type="button" class="tafsir-close-btn" (click)="tafsirOpen.set(false)">إغلاق</button>
+      </div>
+    }
+  </div>
+</app-sheet>
 
 <!-- Save toast confirmation -->
 @if (saveToast(); as toast) {
@@ -146,14 +193,14 @@
       <h4 class="settings-title">خلفية المصحف</h4>
       <div class="theme-grid">
         <button type="button" class="theme-swatch" [class.active]="backgroundTheme() === 'auto'" (click)="setBackgroundTheme('auto')">
-          <span class="swatch-preview" style="background: linear-gradient(135deg, #fffdf8 50%, #1c1c1a 50%)"></span>
+          <span class="swatch-preview" style="background: linear-gradient(135deg, #faf6ec 50%, #161512 50%)"></span>
           <span class="swatch-name">تلقائي</span>
           @if (backgroundTheme() === 'auto') {
             <span class="swatch-check"><app-icon name="check" [size]="14" [stroke]="2.5" /></span>
           }
         </button>
         <button type="button" class="theme-swatch" [class.active]="backgroundTheme() === 'cream'" (click)="setBackgroundTheme('cream')">
-          <span class="swatch-preview" style="background: #fbf9f4"></span>
+          <span class="swatch-preview" style="background: #faf6ec"></span>
           <span class="swatch-name">كريمي</span>
           @if (backgroundTheme() === 'cream') {
             <span class="swatch-check"><app-icon name="check" [size]="14" [stroke]="2.5" /></span>
@@ -167,7 +214,7 @@
           }
         </button>
         <button type="button" class="theme-swatch" [class.active]="backgroundTheme() === 'dark'" (click)="setBackgroundTheme('dark')">
-          <span class="swatch-preview" style="background: #1c1c1a"></span>
+          <span class="swatch-preview" style="background: #161512"></span>
           <span class="swatch-name">داكن</span>
           @if (backgroundTheme() === 'dark') {
             <span class="swatch-check"><app-icon name="check" [size]="14" [stroke]="2.5" /></span>
@@ -175,6 +222,7 @@
         </button>
       </div>
     </section>
+
 
     <section class="settings-group">
       <h4 class="settings-title">طريقة القراءة</h4>
