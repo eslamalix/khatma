@@ -89,6 +89,7 @@ import { Sheet } from '../../ui/sheet';
   `,
 })
 export class Account {
+  protected readonly version = packageJson.version;
   protected readonly cloud = inject(CloudSync);
   protected readonly account = this.cloud.account;
   protected readonly open = signal(false);
