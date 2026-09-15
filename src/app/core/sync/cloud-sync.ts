@@ -284,6 +284,15 @@ export class CloudSync {
           this.flushState();
           for (const name of [...this.docTimers.keys()]) this.flushDoc(name);
         });
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') {
+            const current = this.account();
+            if (current && !current.anonymous) {
+              for (const name of this.docs.keys()) void this.mergeDoc(name, current);
+              this.accountListener?.(current, false);
+            }
+          }
+        });
       }
       return { db, fs, auth, authMod };
     } catch (err) {
