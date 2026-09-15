@@ -53,15 +53,16 @@ export class Awrad {
   readonly adhkarCategories = signal<readonly AdhkarCategory[]>(BUILTIN_ADHKAR);
   readonly activeAdhkar = signal<AdhkarCategory | null>(null);
   readonly adhkarSheetOpen = signal<boolean>(false);
-  protected readonly periodNow = this.adhkarToday.periodNow();
+  protected readonly periodNow = computed(() => this.adhkarToday.periodNow());
   /** Adhkar categories completed today, remembered on this device. */
   readonly doneToday = this.adhkarToday.doneToday;
   /** `/awrad?open=morning` (from the home screen) opens that adhkar straight away. */
   readonly open = input<string>();
   /** The adhkar whose time it is comes first. */
-  protected readonly sortedAdhkar = computed(() =>
-    [...this.adhkarCategories()].sort((a, b) => Number(b.id === this.periodNow) - Number(a.id === this.periodNow)),
-  );
+  protected readonly sortedAdhkar = computed(() => {
+    const p = this.periodNow();
+    return [...this.adhkarCategories()].sort((a, b) => Number(b.id === p) - Number(a.id === p));
+  });
 
   constructor() {
     effect(() => {

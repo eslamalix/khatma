@@ -182,7 +182,7 @@
 <ng-template #adhkarList>
   <section class="card list-card">
     @for (cat of sortedAdhkar(); track cat.id) {
-      <button type="button" class="list-item" [class.now]="cat.id === periodNow && !doneToday().has(cat.id)" (click)="openAdhkar(cat)">
+      <button type="button" class="list-item" [class.now]="cat.id === periodNow() && !doneToday().has(cat.id)" (click)="openAdhkar(cat)">
         <div class="item-icon-wrap" [class.sun-tint]="cat.icon === 'sun'" [class.moon-tint]="cat.icon === 'moon'">
           <app-icon [name]="cat.icon" [size]="18" [stroke]="1.8" />
         </div>
@@ -194,7 +194,7 @@
             <div class="item-sub">{{ cat.timeLabel }}</div>
           }
         </div>
-        @if (cat.id === periodNow && !doneToday().has(cat.id)) {
+        @if (cat.id === periodNow() && !doneToday().has(cat.id)) {
           <span class="now-badge">وقتها الآن</span>
         }
         <div class="chevron-icon">
