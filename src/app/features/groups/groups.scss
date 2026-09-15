@@ -45,6 +45,11 @@
     align-items: center;
     gap: 10px;
 
+    /* Prevent overlap with the global floating account icon on mobile */
+    @media (max-width: 960px) {
+      padding-inline-end: 48px;
+    }
+
     .action-btn.new-btn {
       display: inline-flex;
       align-items: center;
