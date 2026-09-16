@@ -5,7 +5,7 @@ import { clampPage } from '../quran/quran-meta';
 import { demoData } from '../dev/demo-data';
 import { computeKpis, latestSurahInsight, pageRows } from './kpi';
 import { wirdStreak, wirdToday } from './wird';
-import { BackgroundTheme, DEFAULT_STATE, Reading, ReadingMode, ReadingState } from './reading';
+import { BackgroundTheme, DEFAULT_STATE, pendingFor, Reading, ReadingMode, ReadingState } from './reading';
 import { PageVisit } from '../timing/timing-engine';
 
 const STATE_KEY = 'state';
@@ -38,6 +38,7 @@ export class ReadingStore {
 
   constructor() {
     this.cloud.onAccount((account, isNewHere) => void this.mergeAccount(account, isNewHere));
+    this.cloud.registerDevice({ flush: () => this.flushDevice(), wipe: () => this.wipeDevice() });
   }
 
   whenReady() {
@@ -53,7 +54,7 @@ export class ReadingStore {
     } catch (err) {
       console.warn('[reading.store] addVisit', err);
     }
-    this.cloud.pushReadings([reading], (ids) => this.markSynced(ids));
+    void this.cloud.pushReadings([reading], (ids, uid) => void this.markSynced(ids, uid));
   }
 
   setLastPage(page: number) {
@@ -90,14 +91,15 @@ export class ReadingStore {
   }
 
   /**
-   * Signed into an account this device has not seen (e.g. Google on a second phone): download it,
-   * add what is missing here, upload what is missing there, and keep whichever reading position is newer.
+   * An account is in play on this device. If the device has not seen it before (e.g. Google on a second
+   * phone) its history is downloaded and merged; either way everything the account has never received is
+   * uploaded — including readings recorded while signed out — and the newer reading position wins.
    */
   private async mergeAccount(account: CloudAccount, isNewHere: boolean) {
     if (this.demo) return;
     try {
       await this.loading;
-      
+
       // Always pull the state to ensure the current device knows the latest lastPage.
       // Only pull readings history if this is a new device to save Firebase Spark quota.
       const snap = await this.cloud.pull(isNewHere).catch((err) => (console.warn('[sync] pull', err), null));
@@ -113,13 +115,15 @@ export class ReadingStore {
           for (const r of incoming) tx.store.put(r);
           await tx.done;
         }
-
-        const cloudIds = new Set(snap.readings.map((r) => r.id));
-        const missing = this.readings().filter((r) => !cloudIds.has(r.id));
-        if (missing.length) this.cloud.pushReadings(missing, (ids) => this.markSynced(ids));
-        console.info(`[sync] merged account ${account.uid}: +${incoming.length} here, +${missing.length} there`);
+        // Whatever the account already holds needs no upload; anything else is sent below.
+        await this.markSynced(snap.readings.map((r) => r.id), account.uid);
+        const missing = await this.pushPending(account.uid);
+        console.info(`[sync] merged account ${account.uid}: +${incoming.length} here, +${missing} there`);
       } else {
-        console.info(`[sync] verified account ${account.uid}`);
+        // This device has synced with this very account before, so the old flag means "already up there".
+        await this.markSynced(this.readings().filter((r) => r.synced && !r.syncedTo).map((r) => r.id), account.uid);
+        const missing = await this.pushPending(account.uid);
+        console.info(`[sync] verified account ${account.uid}: +${missing} there`);
       }
 
       const cloudState = snap.state;
@@ -147,13 +151,43 @@ export class ReadingStore {
     this.readings.set(readings.sort((a, b) => a.endAt - b.endAt));
     this.state.set({ ...DEFAULT_STATE, ...state });
     this.ready.set(true);
-    const pending = readings.filter((r) => !r.synced);
-    if (pending.length) this.cloud.pushReadings(pending, (ids) => this.markSynced(ids));
+    // Uploading is left to mergeAccount: it knows which account is signed in, and what that account already has.
   }
 
-  private async markSynced(ids: string[]) {
+  /** Send every reading this account has not received yet; returns how many went up. */
+  private async pushPending(uid: string) {
+    const pending = pendingFor(this.readings(), uid);
+    if (pending.length) await this.cloud.pushReadings(pending, (ids, to) => void this.markSynced(ids, to));
+    return pending.length;
+  }
+
+  /** Before signing out: nothing this account produced may be left behind on the device alone. */
+  private async flushDevice() {
+    const uid = this.cloud.account()?.uid;
+    if (this.demo || !uid) return;
+    await this.loading;
+    await this.pushPending(uid);
+  }
+
+  /** Another person's account is taking this device over: their khatmas start from what the cloud holds. */
+  private async wipeDevice() {
+    if (this.demo) return;
+    await this.loading;
+    this.readings.set([]);
+    this.state.set(DEFAULT_STATE);
+    try {
+      const db = await localDb();
+      await db.clear('readings');
+      await db.delete('kv', STATE_KEY);
+    } catch (err) {
+      console.warn('[reading.store] wipeDevice', err);
+    }
+  }
+
+  private async markSynced(ids: string[], uid: string) {
+    if (!ids.length) return;
     const set = new Set(ids);
-    this.readings.update((list) => list.map((r) => (set.has(r.id) ? { ...r, synced: 1 } : r)));
+    this.readings.update((list) => list.map((r) => (set.has(r.id) ? { ...r, synced: 1 as const, syncedTo: uid } : r)));
     try {
       const db = await localDb();
       const tx = db.transaction('readings', 'readwrite');

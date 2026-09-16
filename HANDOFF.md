@@ -19,6 +19,7 @@ Decisions and their reasons: **`docs/DECISIONS.md`** (the source of truth). Appr
 | Timing engine (visibility, 3-min idle with 90 s credit, 10 s minimum) + reading store (IndexedDB) | done, unit-tested |
 | Stats: tiles, improvement vs previous khatma, 604-row virtual table with surah/juz filter, new-khatma sheet | done |
 | Firebase: lazy-loaded, anonymous auth, readings + `status/public` mirrored to Firestore; `firestore.rules`, `firebase.json`, `.firebaserc` | code done — **console setup pending (see §4)** |
+| Google sign-in + account safety: anonymous account linked on sign-in; a **different** permanent account on the same device freezes all sync and asks before taking the device over; every reading carries the uid it was written to (`syncedTo`) so nothing recorded while signed out is stranded; sign-out flushes everything up then goes local-only instead of opening a throwaway anonymous account (`docs/DECISIONS.md` §2) | done, unit-tested (`account-guard.spec.ts`) |
 | Calendar | month heatmap, week bars, 24h dial clock, sessions grouping, responsive 2-column desktop | done, unit-tested |
 | Awrad | smart tasbeeh with haptics/spacebar/auto-advance (33/33/34), groups sheets (Tahseen, Ruqyah), morning/evening adhkar (Fajr-based day cycle, preserves evening adhkar across midnight), reactive period transitions | done, unit-tested |
 | Reading settings & Multiple ayah selection | unified settings sheet (cream/white/dark/auto themes, horizontal/vertical mode, font scale), zero-overlap continuous translucent highlight via linear-gradient transparent vertical bands (7px) & 2.35 line-height, bottom floating action bar with `+` / `-` range stepper, copy with feedback, save to groups with repeat selector 1/3/7 and new group creation, synced with Awrad via `AwradStore`, bottom nav gracefully tucks away while selecting | done, unit-tested |
@@ -46,12 +47,13 @@ Done from the CLI (`npm i -g firebase-tools`, `firebase login` as the owner acco
 - Verified on https://eslamalix.github.io/khatma/: anonymous sign-in and `users/{uid}/status/public` written.
 
 Redeploy config: `firebase deploy --only auth,firestore:rules --project quraan-8ae72`.
+**`firestore.rules` was tightened and is not deployed yet** — it now allows only the paths and field shapes the app writes (`readings` with its six fields, `profile/{state|groups|adhkar|audio}`, `status/public`), because anyone can open an anonymous account and an unconstrained subtree is a free way to burn the shared Spark quota. Deploy it with the command above and the rules simulator in the console will confirm the app's writes still pass.
 Web app hosting is GitHub Pages from the `gh-pages` branch: `MSYS_NO_PATHCONV=1 npx ng build --base-href /khatma/`, copy `dist/quran-kpi/browser` to `gh-pages` with `404.html` (copy of index) and `.nojekyll`.
 
 Still open for the owner: restrict the web API key to `eslamalix.github.io` in Google Cloud console; app name + icon; adhkar text review; licence check for the Quran data source before launch.
 
 ## 5. Next
 Phase 3 (`docs/DECISIONS.md` §3):
-- **تسجيل الدخول (Google والإيميل):** ربط الحساب المؤقت Anonymous بحساب دائم، ومزامنة السحابة الكاملة.
+- **تسجيل الدخول:** Google تم (ربط الحساب المؤقت Anonymous بحساب دائم + حماية الجهاز المشترك). الباقي: الدخول بالإيميل، وتدفق redirect بدل popup قبل تغليف Capacitor، وحذف الحساب وتصدير البيانات (شرط متاجر التطبيقات).
 - **مشاركة الأهل (Family sharing):** دعوات الرموز ومتابعة ختمات أفراد العائلة المشتركة في بطاقة مخصصة.
 - **تطبيق الجوال بـ Capacitor:** تغليف التطبيق كـ native app للـ iOS والـ Android مع إشعارات الأوراد.

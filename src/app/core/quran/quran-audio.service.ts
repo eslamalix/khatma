@@ -106,6 +106,14 @@ export class QuranAudioService {
         this.applyPrefs(data);
         this.writePrefs(updatedAt);
       },
+      // Playback settings are a preference, not personal data: dropping the stamp lets the new account's copy win.
+      reset: () => {
+        try {
+          localStorage.removeItem(PREFS_KEY);
+        } catch {
+          // Nothing kept, nothing to clear.
+        }
+      },
     });
     const a = this.audio;
     if (!a) return;

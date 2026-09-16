@@ -1,57 +1,71 @@
 import { Injectable, signal } from '@angular/core';
 import { CloudSync, injectOptional } from '../sync/cloud-sync';
 import { AyahGroup, BUILTIN_GROUPS, GroupPassage } from './awrad-data';
+import { mergeGroups } from './groups-merge';
 
 const GROUPS_STORAGE_KEY = 'quran_kpi_groups';
 const GROUPS_UPDATED_KEY = 'quran_kpi_groups_updated';
+/** Ids of deleted groups and passages, with when they were deleted. */
+const GROUPS_REMOVED_KEY = 'quran_kpi_groups_removed';
+/** How long a deletion keeps travelling between devices before it is forgotten. */
+const TOMBSTONE_TTL_MS = 180 * 24 * 60 * 60 * 1000;
+
+interface GroupsDoc {
+  groups: AyahGroup[];
+  removed?: Record<string, number>;
+}
+
+/** Deletions older than the window cannot still be in flight, so they stop taking up room. */
+function prune(removed: Record<string, number>): Record<string, number> {
+  const cutoff = Date.now() - TOMBSTONE_TTL_MS;
+  return Object.fromEntries(Object.entries(removed).filter(([, at]) => at > cutoff));
+}
 
 @Injectable({ providedIn: 'root' })
 export class AwradStore {
   readonly groups = signal<AyahGroup[]>(this.loadGroups());
+  /** What this device deleted, so the deletion reaches the other devices instead of being undone by them. */
+  private readonly removed = signal<Record<string, number>>(this.loadRemoved());
   private readonly cloud = injectOptional(CloudSync);
 
   constructor() {
-    this.cloud?.registerDoc<{ groups: AyahGroup[] }>({
+    this.cloud?.registerDoc<GroupsDoc>({
       name: 'groups',
-      read: () => ({ data: { groups: this.groups() }, updatedAt: this.updatedAt() }),
+      read: () => ({ data: { groups: this.groups(), removed: this.removed() }, updatedAt: this.updatedAt() }),
       apply: (data, updatedAt) => {
         if (!Array.isArray(data.groups)) return;
-        this.groups.set(data.groups);
+        this.removed.set(prune(data.removed ?? {}));
+        this.groups.set(this.withoutRemoved(data.groups));
         this.saveGroups(updatedAt);
       },
       merge: (cloudData, cloudUpdatedAt) => {
         if (!Array.isArray(cloudData.groups)) return;
         if (this.updatedAt() === cloudUpdatedAt) return;
-        
-        const localGroups = [...this.groups()];
-        let changed = false;
 
-        for (const cg of cloudData.groups) {
-          const lgIndex = localGroups.findIndex((g) => g.id === cg.id);
-          if (lgIndex < 0) {
-            localGroups.push(cg);
-            changed = true;
-          } else {
-            const lg = localGroups[lgIndex];
-            const mergedPassages = [...lg.passages];
-            let passagesChanged = false;
-            for (const cp of cg.passages) {
-              if (!mergedPassages.find((p) => p.id === cp.id)) {
-                mergedPassages.push(cp);
-                passagesChanged = true;
-              }
-            }
-            if (passagesChanged) {
-              localGroups[lgIndex] = { ...lg, passages: mergedPassages };
-              changed = true;
-            }
-          }
-        }
+        // A deletion has to travel as well: on its own, a union merge keeps handing the group back.
+        const tombstones = prune({ ...(cloudData.removed ?? {}) });
+        for (const [id, at] of Object.entries(this.removed())) tombstones[id] = Math.max(tombstones[id] ?? 0, at);
 
-        if (changed || cloudUpdatedAt > this.updatedAt()) {
-          this.groups.set(localGroups);
+        const { groups, changed, cleanup } = mergeGroups(this.groups(), cloudData.groups, tombstones);
+
+        this.removed.set(tombstones);
+        if (changed || cleanup || cloudUpdatedAt > this.updatedAt()) {
+          this.groups.set(groups);
           this.saveGroups();
+        } else {
+          this.saveRemoved();
         }
+      },
+      reset: () => {
+        try {
+          localStorage.removeItem(GROUPS_STORAGE_KEY);
+          localStorage.removeItem(GROUPS_UPDATED_KEY);
+          localStorage.removeItem(GROUPS_REMOVED_KEY);
+        } catch {
+          // Nothing kept, nothing to clear.
+        }
+        this.removed.set({});
+        this.groups.set([...BUILTIN_GROUPS]);
       },
     });
   }
@@ -105,11 +119,13 @@ export class AwradStore {
     if (index < 0) return null;
     const group = this.groups()[index];
     this.groups.update((list) => list.filter((g) => g.id !== groupId));
+    this.mark(groupId);
     this.saveGroups();
     return { group, index };
   }
 
   restoreGroup(group: AyahGroup, index: number) {
+    this.unmark(group.id);
     this.groups.update((list) => {
       const next = list.filter((g) => g.id !== group.id);
       next.splice(Math.min(index, next.length), 0, group);
@@ -124,11 +140,13 @@ export class AwradStore {
     const index = group?.passages.findIndex((p) => p.id === passageId) ?? -1;
     if (!group || index < 0) return null;
     const passage = group.passages[index];
+    this.mark(passageId);
     this.patchGroup(groupId, (g) => ({ ...g, passages: g.passages.filter((p) => p.id !== passageId) }));
     return { passage, index };
   }
 
   restorePassage(groupId: string, passage: GroupPassage, index: number) {
+    this.unmark(passage.id);
     this.patchGroup(groupId, (g) => {
       const passages = g.passages.filter((p) => p.id !== passage.id);
       passages.splice(Math.min(index, passages.length), 0, passage);
@@ -157,8 +175,11 @@ export class AwradStore {
   /** Moves a passage to the end of another group. */
   movePassageToGroup(fromGroupId: string, passageId: string, toGroupId: string) {
     if (fromGroupId === toGroupId) return;
-    const removed = this.removePassage(fromGroupId, passageId);
-    if (removed) this.patchGroup(toGroupId, (g) => ({ ...g, passages: [...g.passages, removed.passage] }));
+    const moved = this.removePassage(fromGroupId, passageId);
+    if (!moved) return;
+    // It moved, it was not deleted: the tombstone would erase it again on the next merge.
+    this.unmark(passageId);
+    this.patchGroup(toGroupId, (g) => ({ ...g, passages: [...g.passages, moved.passage] }));
   }
 
   private patchGroup(groupId: string, fn: (g: AyahGroup) => AyahGroup) {
@@ -193,7 +214,43 @@ export class AwradStore {
     } catch {
       // Ignore quota errors
     }
+    this.saveRemoved();
     if (fromCloud === undefined) this.cloud?.touchDoc('groups');
+  }
+
+  /** Remember a deletion until every device has seen it. */
+  private mark(id: string) {
+    this.removed.update((map) => ({ ...map, [id]: Date.now() }));
+  }
+
+  /** It came back (undo, or a move between groups), so the deletion no longer holds. */
+  private unmark(id: string) {
+    this.removed.update(({ [id]: _gone, ...rest }) => rest);
+  }
+
+  private withoutRemoved(groups: AyahGroup[]): AyahGroup[] {
+    const tombstones = this.removed();
+    return groups
+      .filter((g) => !tombstones[g.id])
+      .map((g) => ({ ...g, passages: g.passages.filter((p) => !tombstones[p.id]) }));
+  }
+
+  private saveRemoved(): void {
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.setItem(GROUPS_REMOVED_KEY, JSON.stringify(this.removed()));
+    } catch {
+      // Ignore quota errors
+    }
+  }
+
+  private loadRemoved(): Record<string, number> {
+    try {
+      if (typeof localStorage === 'undefined') return {};
+      const saved = JSON.parse(localStorage.getItem(GROUPS_REMOVED_KEY) ?? 'null') as Record<string, number> | null;
+      return saved ? prune(saved) : {};
+    } catch {
+      return {};
+    }
   }
 
   private updatedAt(): number {

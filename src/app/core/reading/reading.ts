@@ -11,6 +11,19 @@ export interface Reading {
   durationMs: number;
   /** 1 once written to the cloud. */
   synced: 0 | 1;
+  /**
+   * The account uid this reading was written to. Anything else — no account yet, or the reading was
+   * recorded while signed out — means it still has to go up, so a change of account never loses it.
+   */
+  syncedTo?: string;
+}
+
+/**
+ * The readings an account has never received: never uploaded, or uploaded to a different account
+ * (recorded while signed out, or before this device was linked to this account).
+ */
+export function pendingFor(readings: Reading[], uid: string) {
+  return readings.filter((r) => r.syncedTo !== uid);
 }
 
 export type BackgroundTheme = 'auto' | 'cream' | 'white' | 'dark';

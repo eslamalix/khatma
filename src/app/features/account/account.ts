@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { CloudSync } from '../../core/sync/cloud-sync';
 import packageJson from '../../../../package.json';
 import { Icon } from '../../ui/icon';
@@ -20,9 +20,19 @@ import { Sheet } from '../../ui/sheet';
       }
     </button>
 
-    <app-sheet [open]="open()" [title]="signedIn() ? 'حسابك' : 'احفظ ختماتك'" (closed)="open.set(false)">
+    <app-sheet [open]="open()" [title]="sheetTitle()" (closed)="close()">
       <div class="account">
-        @if (signedIn()) {
+        @if (cloud.pendingSwitch(); as other) {
+          <p class="lead">على هذا الجهاز ختمات وقراءات محفوظة لحساب آخر.</p>
+          <p class="warn">
+            لو تابعت بحساب <span dir="ltr">{{ other.email }}</span> فسيُمسح ما على هذا الجهاز ويحل محله ما هو محفوظ في حسابك.
+            بيانات الحساب السابق تبقى في أمان في السحابة.
+          </p>
+          <button type="button" class="danger" (click)="cloud.confirmSwitch()" [disabled]="cloud.busy()">
+            {{ cloud.busy() ? 'جارٍ التبديل…' : 'متابعة ومسح بيانات الجهاز' }}
+          </button>
+          <button type="button" class="secondary" (click)="cloud.cancelSwitch()" [disabled]="cloud.busy()">رجوع</button>
+        } @else if (signedIn()) {
           <div class="who">
             @if (account()?.photoUrl; as photo) {
               <img class="who-photo" [src]="photo" alt="" referrerpolicy="no-referrer" />
@@ -36,7 +46,7 @@ import { Sheet } from '../../ui/sheet';
           </div>
           <p class="note ok"><app-icon name="check" [size]="16" [stroke]="2.4" /> ختماتك وقراءاتك محفوظة في حسابك، وتفتحها من أي جهاز.</p>
           <button type="button" class="secondary" (click)="signOut()" [disabled]="cloud.busy()">تسجيل الخروج</button>
-          <p class="fine">بعد الخروج تبقى بياناتك على هذا الجهاز.</p>
+          <p class="fine">بعد الخروج تبقى بياناتك على هذا الجهاز، ويتوقف الحفظ في السحابة حتى تسجّل الدخول مرة أخرى.</p>
         } @else {
           <p class="lead">قراءاتك الآن محفوظة على هذا الجهاز فقط. سجّل الدخول بحساب Google لتبقى في أمان، وتكمل ختمتك من أي جهاز.</p>
           <button type="button" class="google" (click)="signIn()" [disabled]="cloud.busy() || cloud.status() === 'offline'">
@@ -98,6 +108,12 @@ import { Sheet } from '../../ui/sheet';
     .ok { color: var(--accent); }
     .secondary { height: 48px; border-radius: 14px; background: var(--fill); color: var(--ink); font-size: 15px; font-weight: 600; }
     .fine { margin: 0; font-size: 13px; color: var(--ink-2); text-align: center; }
+    .warn { margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--fill); color: var(--ink); font-size: 14px; line-height: 1.7; }
+    .danger {
+      height: 50px; border-radius: 14px; font-size: 15.5px; font-weight: 700;
+      background: color-mix(in srgb, #c0392b 12%, transparent); color: #b3261e;
+      &:disabled { opacity: .55; }
+    }
     .error { margin: 0; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, #c0392b 10%, transparent); color: color-mix(in srgb, #b3261e 90%, var(--ink)); font-size: 14px; }
   `,
 })
@@ -109,6 +125,22 @@ export class Account {
   protected readonly error = signal<string | null>(null);
   protected readonly signedIn = computed(() => !!this.account() && !this.account()!.anonymous);
   protected readonly initial = computed(() => (this.account()?.name ?? this.account()?.email ?? '؟').trim().charAt(0));
+  protected readonly sheetTitle = computed(() =>
+    this.cloud.pendingSwitch() ? 'حساب مختلف' : this.signedIn() ? 'حسابك' : 'احفظ ختماتك',
+  );
+
+  constructor() {
+    // A different account signed in: nothing syncs until the person decides, so the question comes to them.
+    effect(() => {
+      if (this.cloud.pendingSwitch()) this.open.set(true);
+    });
+  }
+
+  /** Closing the sheet on the question is the safe answer: keep this device as it is. */
+  protected close() {
+    if (this.cloud.pendingSwitch()) void this.cloud.cancelSwitch();
+    this.open.set(false);
+  }
 
   protected async signIn() {
     this.error.set(null);

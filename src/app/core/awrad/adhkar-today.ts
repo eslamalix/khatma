@@ -70,7 +70,16 @@ export class AdhkarToday {
         }
         this.countsToday.set(mergedCounts);
         this.saveState(mergedIds, mergedCounts, false);
-      }
+      },
+      reset: () => {
+        try {
+          localStorage.removeItem(ADHKAR_DONE_KEY);
+        } catch {
+          // Nothing kept, nothing to clear.
+        }
+        this.doneToday.set(new Set());
+        this.countsToday.set({});
+      },
     });
 
     if (typeof document !== 'undefined') {
