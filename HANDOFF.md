@@ -20,7 +20,7 @@ Decisions and their reasons: **`docs/DECISIONS.md`** (the source of truth). Appr
 | Stats: tiles, improvement vs previous khatma, 604-row virtual table with surah/juz filter, new-khatma sheet | done |
 | Firebase: lazy-loaded, anonymous auth, readings + `status/public` mirrored to Firestore; `firestore.rules`, `firebase.json`, `.firebaserc` | code done — **console setup pending (see §4)** |
 | Calendar | month heatmap, week bars, 24h dial clock, sessions grouping, responsive 2-column desktop | done, unit-tested |
-| Awrad | smart tasbeeh with haptics/spacebar/auto-advance (33/33/34), groups sheets (Tahseen, Ruqyah), morning/evening adhkar | done, unit-tested |
+| Awrad | smart tasbeeh with haptics/spacebar/auto-advance (33/33/34), groups sheets (Tahseen, Ruqyah), morning/evening adhkar (Fajr-based day cycle, preserves evening adhkar across midnight), reactive period transitions | done, unit-tested |
 | Reading settings & Multiple ayah selection | unified settings sheet (cream/white/dark/auto themes, horizontal/vertical mode, font scale), zero-overlap continuous translucent highlight via linear-gradient transparent vertical bands (7px) & 2.35 line-height, bottom floating action bar with `+` / `-` range stepper, copy with feedback, save to groups with repeat selector 1/3/7 and new group creation, synced with Awrad via `AwradStore`, bottom nav gracefully tucks away while selecting | done, unit-tested |
 | Recitation player (T20) + tafsir cache (T21) | floating mini player above page nav → expandable sheet (reciter, repeat per ayah, loop range, speed); continuous ayah→surah→page playback with basmala, auto page turn + scroll to playing ayah, Media Session lock-screen controls, retry on network error; header headphones button plays the visible page | done, unit-tested (`quran-audio.spec.ts`) |
 
@@ -43,10 +43,10 @@ Done from the CLI (`npm i -g firebase-tools`, `firebase login` as the owner acco
 - Firestore `(default)` database, Standard edition, location **eur3** (recreated there on 2026-09-15; `firestore:databases:create` must run before the first rules deploy or the deploy creates it in nam5).
 - Synced per user: `readings/*`, `profile/state`, `status/public`, and device documents `profile/groups`, `profile/adhkar`, `profile/audio` (CloudSync.registerDoc; newest `updatedAt` wins on a new account).
 - `firestore.rules` deployed; verified: a user can write `users/{own uid}/…`, another uid is rejected (403).
-- Verified on https://eslamalix.github.io/quraanApp/: anonymous sign-in and `users/{uid}/status/public` written.
+- Verified on https://eslamalix.github.io/khatma/: anonymous sign-in and `users/{uid}/status/public` written.
 
 Redeploy config: `firebase deploy --only auth,firestore:rules --project quraan-8ae72`.
-Web app hosting is GitHub Pages from the `gh-pages` branch: `MSYS_NO_PATHCONV=1 npx ng build --base-href /quraanApp/`, copy `dist/quran-kpi/browser` to `gh-pages` with `404.html` (copy of index) and `.nojekyll`.
+Web app hosting is GitHub Pages from the `gh-pages` branch: `MSYS_NO_PATHCONV=1 npx ng build --base-href /khatma/`, copy `dist/quran-kpi/browser` to `gh-pages` with `404.html` (copy of index) and `.nojekyll`.
 
 Still open for the owner: restrict the web API key to `eslamalix.github.io` in Google Cloud console; app name + icon; adhkar text review; licence check for the Quran data source before launch.
 
