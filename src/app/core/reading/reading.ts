@@ -22,7 +22,7 @@ export interface Reading {
  * The readings an account has never received: never uploaded, or uploaded to a different account
  * (recorded while signed out, or before this device was linked to this account).
  */
-export function pendingFor(readings: Reading[], uid: string) {
+export function pendingFor(readings: readonly Reading[], uid: string) {
   return readings.filter((r) => r.syncedTo !== uid);
 }
 

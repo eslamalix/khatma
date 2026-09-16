@@ -5,10 +5,20 @@ import { clampPage } from '../quran/quran-meta';
 import { demoData } from '../dev/demo-data';
 import { computeKpis, latestSurahInsight, pageRows } from './kpi';
 import { wirdStreak, wirdToday } from './wird';
-import { BackgroundTheme, DEFAULT_STATE, pendingFor, Reading, ReadingMode, ReadingState } from './reading';
+import { BackgroundTheme, DEFAULT_STATE, Reading, ReadingMode, ReadingState } from './reading';
 import { PageVisit } from '../timing/timing-engine';
+import { DayDoc, dayDocOf, dayKeyOf, pendingDays, readingsFromDays, summaryOf } from '../sync/day-docs';
+import packageJson from '../../../../package.json';
 
 const STATE_KEY = 'state';
+/**
+ * How long page visits pile up before the day they belong to is written to the cloud. Wide on purpose:
+ * one document per day is rewritten each time, so a short window would cost a write every few seconds.
+ * A page hide or a sign-out flushes immediately, and IndexedDB already has everything meanwhile.
+ */
+const DAY_DEBOUNCE_MS = 300_000;
+/** The owner summary is a total, not a live feed; once every quarter hour of reading is plenty. */
+const SUMMARY_MIN_MS = 900_000;
 
 /** All reading data for the app: device-first, mirrored to the cloud when signed in. */
 @Injectable({ providedIn: 'root' })
@@ -35,6 +45,8 @@ export class ReadingStore {
   });
 
   private readonly loading = this.load();
+  private dayTimer: ReturnType<typeof setTimeout> | null = null;
+  private summaryAt = 0;
 
   constructor() {
     this.cloud.onAccount((account, isNewHere) => void this.mergeAccount(account, isNewHere));
@@ -54,7 +66,12 @@ export class ReadingStore {
     } catch (err) {
       console.warn('[reading.store] addVisit', err);
     }
-    void this.cloud.pushReadings([reading], (ids, uid) => void this.markSynced(ids, uid));
+    this.scheduleDayFlush();
+  }
+
+  private scheduleDayFlush() {
+    if (this.dayTimer || this.demo) return;
+    this.dayTimer = setTimeout(() => void this.flushDays(), DAY_DEBOUNCE_MS);
   }
 
   setLastPage(page: number) {
@@ -115,15 +132,17 @@ export class ReadingStore {
           for (const r of incoming) tx.store.put(r);
           await tx.done;
         }
-        // Whatever the account already holds needs no upload; anything else is sent below.
-        await this.markSynced(snap.readings.map((r) => r.id), account.uid);
-        const missing = await this.pushPending(account.uid);
-        console.info(`[sync] merged account ${account.uid}: +${incoming.length} here, +${missing} there`);
+        // Days the account already holds need no upload. Readings it kept in the older per-visit shape
+        // stay untagged on purpose, so the flush below stores them as days and the account moves over.
+        await this.markSynced(
+          snap.readings.filter((r) => r.syncedTo === account.uid).map((r) => r.id),
+          account.uid,
+        );
+        const days = await this.flushDays();
+        console.info(`[sync] merged account ${account.uid}: +${incoming.length} here, ${days} days up`);
       } else {
-        // This device has synced with this very account before, so the old flag means "already up there".
-        await this.markSynced(this.readings().filter((r) => r.synced && !r.syncedTo).map((r) => r.id), account.uid);
-        const missing = await this.pushPending(account.uid);
-        console.info(`[sync] verified account ${account.uid}: +${missing} there`);
+        const days = await this.flushDays();
+        console.info(`[sync] verified account ${account.uid}: ${days} days up`);
       }
 
       const cloudState = snap.state;
@@ -154,25 +173,70 @@ export class ReadingStore {
     // Uploading is left to mergeAccount: it knows which account is signed in, and what that account already has.
   }
 
-  /** Send every reading this account has not received yet; returns how many went up. */
-  private async pushPending(uid: string) {
-    const pending = pendingFor(this.readings(), uid);
-    if (pending.length) await this.cloud.pushReadings(pending, (ids, to) => void this.markSynced(ids, to));
-    return pending.length;
+  /**
+   * Writes every day that holds readings this account has not received, as one document per day, and
+   * takes back whatever the account already had for those days (another phone reading the same day).
+   * Returns how many days went up.
+   */
+  private async flushDays() {
+    if (this.dayTimer) clearTimeout(this.dayTimer);
+    this.dayTimer = null;
+    const uid = this.cloud.account()?.uid;
+    if (this.demo || !uid) return 0;
+    await this.loading;
+
+    const dates = new Set(pendingDays(this.readings(), uid));
+    if (!dates.size) return 0;
+    const byDate = new Map<string, Reading[]>();
+    for (const reading of this.readings()) {
+      const date = dayKeyOf(reading);
+      if (!dates.has(date)) continue;
+      const day = byDate.get(date);
+      if (day) day.push(reading);
+      else byDate.set(date, [reading]);
+    }
+
+    const days = [...byDate].map(([date, readings]) => dayDocOf(date, readings));
+    await this.cloud.pushDays(days, (stored, to) => void this.adoptStored(stored, to));
+    return days.length;
   }
 
-  /** Before signing out: nothing this account produced may be left behind on the device alone. */
+  /** What the account holds for a day it just accepted, including visits this device had never seen. */
+  private async adoptStored(stored: DayDoc[], uid: string) {
+    const incoming = readingsFromDays(stored, uid);
+    const known = new Set(this.readings().map((r) => r.id));
+    const fresh = incoming.filter((r) => !known.has(r.id));
+    if (fresh.length) this.readings.update((list) => [...list, ...fresh].sort((a, b) => a.endAt - b.endAt));
+    await this.markSynced(
+      incoming.map((r) => r.id),
+      uid,
+    );
+    await this.pushSummary();
+  }
+
+  /** The totals an owner dashboard reads; written rarely, and always at the end of a session. */
+  private async pushSummary(force = false) {
+    const account = this.cloud.account();
+    if (this.demo || !account) return;
+    if (!force && Date.now() - this.summaryAt < SUMMARY_MIN_MS) return;
+    this.summaryAt = Date.now();
+    await this.cloud.pushSummary(summaryOf(this.readings(), this.state(), account, packageJson.version));
+  }
+
+  /** Before signing out or hiding the page: nothing this account produced may be left on the device alone. */
   private async flushDevice() {
-    const uid = this.cloud.account()?.uid;
-    if (this.demo || !uid) return;
-    await this.loading;
-    await this.pushPending(uid);
+    if (this.demo || !this.cloud.account()) return;
+    await this.flushDays();
+    await this.pushSummary(true);
   }
 
   /** Another person's account is taking this device over: their khatmas start from what the cloud holds. */
   private async wipeDevice() {
     if (this.demo) return;
     await this.loading;
+    if (this.dayTimer) clearTimeout(this.dayTimer);
+    this.dayTimer = null;
+    this.summaryAt = 0;
     this.readings.set([]);
     this.state.set(DEFAULT_STATE);
     try {

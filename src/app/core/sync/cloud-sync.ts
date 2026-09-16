@@ -4,6 +4,7 @@ import type { Firestore } from 'firebase/firestore';
 import { environment } from '../../../environments/environment';
 import type { Reading, ReadingState } from '../reading/reading';
 import { surahAtPage } from '../quran/quran-meta';
+import { DayDoc, mergeDay, OwnerSummary, readingsFromDays, StoredVisit } from './day-docs';
 
 type SyncStatus = 'connecting' | 'ready' | 'offline';
 
@@ -71,9 +72,10 @@ const BATCH_LIMIT = 450;
 /**
  * Page turns update the reading position; coalesce them so a reading session costs a handful of writes.
  * The Spark plan gives the whole project 20k writes a day, shared by every reader, so this window is wide:
- * the position is also flushed on page hide and sign-out, which is when it actually has to be right.
+ * the position is also flushed on page hide and sign-out, which is when moving to another device actually
+ * happens. The device's own copy is written to IndexedDB immediately either way, so nothing is at risk.
  */
-const STATE_DEBOUNCE_MS = 60_000;
+const STATE_DEBOUNCE_MS = 300_000;
 /**
  * `status/public` exists for family sharing (P11), which is not built yet — nothing reads it. Writing it
  * doubles the cost of every position update, so it stays off until the family card needs it.
@@ -112,6 +114,8 @@ export class CloudSync {
   private readonly docTimers = new Map<string, ReturnType<typeof setTimeout>>();
   /** True between an unexpected account appearing and the person deciding what to do about it. */
   private held = false;
+  /** Day documents already seen in this account, so a day is read from the cloud at most once per session. */
+  private readonly daysRead = new Set<string>();
 
   /** Keep a device document in the cloud; merged once per account per device, pushed after every change. */
   registerDoc<T extends object>(doc: SyncedDoc<T>) {
@@ -184,26 +188,58 @@ export class CloudSync {
     if (current) listener(current, this.isNewHere(current));
   }
 
-  /** Uploads readings and reports back which ones landed, and in which account they landed. */
-  async pushReadings(readings: Reading[], onSynced: (ids: string[], uid: string) => void) {
+  /**
+   * Uploads whole days and reports back what was actually stored, so the device can adopt any visit that
+   * came from another phone. A day is merged with the account's copy the first time this session touches
+   * it: two phones reading on the same day must not overwrite one another.
+   */
+  async pushDays(days: DayDoc[], onStored: (stored: DayDoc[], uid: string) => void) {
+    if (this.held || !days.length) return;
+    try {
+      const s = await this.session;
+      const uid = s?.auth.currentUser?.uid;
+      if (!s || !uid || this.held) return;
+      const stored: DayDoc[] = [];
+      for (let i = 0; i < days.length; i += BATCH_LIMIT) {
+        const chunk = await Promise.all(days.slice(i, i + BATCH_LIMIT).map((day) => this.dayToWrite(s, uid, day)));
+        const batch = s.fs.writeBatch(s.db);
+        for (const day of chunk) batch.set(s.fs.doc(s.db, 'users', uid, 'days', day.date), day);
+        await batch.commit();
+        if (this.held) return;
+        for (const day of chunk) this.daysRead.add(day.date);
+        stored.push(...chunk);
+      }
+      onStored(stored, uid);
+    } catch (err) {
+      console.warn('[sync] days', err);
+    }
+  }
+
+  /** One read per day per session: after that this device knows what the account holds for that day. */
+  private async dayToWrite(s: Session, uid: string, day: DayDoc): Promise<DayDoc> {
+    if (this.daysRead.has(day.date)) return day;
+    try {
+      const snap = await s.fs.getDoc(s.fs.doc(s.db, 'users', uid, 'days', day.date));
+      return mergeDay(day, snap.data() as DayDoc | undefined);
+    } catch (err) {
+      console.warn('[sync] day merge', err);
+      return day;
+    }
+  }
+
+  /**
+   * The reader's totals at `users/{uid}`: the document an owner dashboard lists, one read per reader
+   * instead of a scan of their history. It is a summary, so it is written rarely, not on every page turn.
+   */
+  async pushSummary(summary: OwnerSummary) {
     if (this.held) return;
     try {
       const s = await this.session;
       const uid = s?.auth.currentUser?.uid;
-      if (!s || !uid || !readings.length || this.held) return;
-      for (let i = 0; i < readings.length; i += BATCH_LIMIT) {
-        const chunk = readings.slice(i, i + BATCH_LIMIT);
-        const batch = s.fs.writeBatch(s.db);
-        for (const { synced, syncedTo, ...r } of chunk) batch.set(s.fs.doc(s.db, 'users', uid, 'readings', r.id), r);
-        await batch.commit();
-        if (this.held) return;
-        onSynced(
-          chunk.map((r) => r.id),
-          uid,
-        );
-      }
+      if (!s || !uid || this.held) return;
+      await s.fs.setDoc(s.fs.doc(s.db, 'users', uid), summary);
     } catch (err) {
-      console.warn('[sync] readings', err);
+      console.warn('[sync] summary', err);
     }
   }
 
@@ -250,22 +286,34 @@ export class CloudSync {
     const uid = s?.auth.currentUser?.uid;
     if (!s || !uid) return null;
 
-    const [readings, state] = await Promise.all([
-      includeReadings ? s.fs.getDocs(s.fs.collection(s.db, 'users', uid, 'readings')) : Promise.resolve({ docs: [] }),
+    const empty = Promise.resolve({ docs: [] as { id: string; data: () => unknown }[] });
+    const [days, legacy, state] = await Promise.all([
+      includeReadings ? s.fs.getDocs(s.fs.collection(s.db, 'users', uid, 'days')) : empty,
+      // Accounts written before day documents kept one document per page visit; they are read once and
+      // then travel back up as days, so an old account still restores on a new phone.
+      includeReadings ? s.fs.getDocs(s.fs.collection(s.db, 'users', uid, 'readings')) : empty,
       s.fs.getDoc(s.fs.doc(s.db, 'users', uid, 'profile', 'state')),
     ]);
-    // Only a full download means this device now holds the account; a state-only pull does not.
-    if (includeReadings) this.markPulled(uid);
-    return {
-      readings: includeReadings
-        ? readings.docs.map((d) => ({
-            ...(d.data() as Omit<Reading, 'synced' | 'syncedTo'>),
-            synced: 1 as const,
-            syncedTo: uid,
-          }))
-        : [],
-      state: (state.data() as Partial<ReadingState> | undefined) ?? null,
-    };
+
+    let readings: Reading[] = [];
+    if (includeReadings) {
+      for (const d of days.docs) this.daysRead.add(d.id);
+      readings = readingsFromDays(
+        days.docs.map((d) => d.data() as DayDoc),
+        uid,
+      );
+      const known = new Set(readings.map((r) => r.id));
+      for (const d of legacy.docs) {
+        const visit = d.data() as StoredVisit;
+        // Not stored as a day yet: left untagged so it is written back in the new shape.
+        if (!known.has(visit.id)) readings.push({ ...visit, synced: 1 });
+      }
+      readings.sort((a, b) => a.endAt - b.endAt);
+      // Only a full download means this device now holds the account; a state-only pull does not.
+      this.markPulled(uid);
+    }
+
+    return { readings, state: (state.data() as Partial<ReadingState> | undefined) ?? null };
   }
 
   markPulled(uid: string) {
@@ -341,6 +389,7 @@ export class CloudSync {
     try {
       await this.deviceHooks?.wipe();
       for (const doc of this.docs.values()) doc.reset?.();
+      this.daysRead.clear();
       this.forget(PULLED_KEY);
       this.write(OWNER_KEY, next.uid);
       this.forget(SIGNED_OUT_KEY);
@@ -430,6 +479,7 @@ export class CloudSync {
       if (typeof window !== 'undefined') {
         window.addEventListener('pagehide', () => {
           void this.flushState();
+          void this.deviceHooks?.flush();
           for (const name of [...this.docTimers.keys()]) void this.flushDoc(name);
         });
         document.addEventListener('visibilitychange', () => {
@@ -473,6 +523,8 @@ export class CloudSync {
     const prev = this.account();
     this.account.set(next);
     if (prev?.uid !== next.uid || prev?.anonymous !== next.anonymous) {
+      // A different account holds different days.
+      if (prev?.uid !== next.uid) this.daysRead.clear();
       this.accountListener?.(next, this.isNewHere(next));
       for (const name of this.docs.keys()) void this.mergeDoc(name, next);
     }

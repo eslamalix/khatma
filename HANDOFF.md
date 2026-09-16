@@ -19,6 +19,7 @@ Decisions and their reasons: **`docs/DECISIONS.md`** (the source of truth). Appr
 | Timing engine (visibility, 3-min idle with 90 s credit, 10 s minimum) + reading store (IndexedDB) | done, unit-tested |
 | Stats: tiles, improvement vs previous khatma, 604-row virtual table with surah/juz filter, new-khatma sheet | done |
 | Firebase: lazy-loaded, anonymous auth, readings + `status/public` mirrored to Firestore; `firestore.rules`, `firebase.json`, `.firebaserc` | code done — **console setup pending (see §4)** |
+| Data model for sync + a future owner dashboard: readings stored as one document per day (`users/{uid}/days/{YYYY-MM-DD}`, merged not replaced, old per-visit documents migrated on first sync), per-reader totals at `users/{uid}` for listing every user in one read each, owner read access via `config/admins` (`docs/DECISIONS.md` §2) | done, unit-tested (`day-docs.spec.ts`) — **needs the rules deployed** |
 | Google sign-in + account safety: anonymous account linked on sign-in; a **different** permanent account on the same device freezes all sync and asks before taking the device over; every reading carries the uid it was written to (`syncedTo`) so nothing recorded while signed out is stranded; sign-out flushes everything up then goes local-only instead of opening a throwaway anonymous account (`docs/DECISIONS.md` §2) | done, unit-tested (`account-guard.spec.ts`) |
 | Calendar | month heatmap, week bars, 24h dial clock, sessions grouping, responsive 2-column desktop | done, unit-tested |
 | Awrad | smart tasbeeh with haptics/spacebar/auto-advance (33/33/34), groups sheets (Tahseen, Ruqyah), morning/evening adhkar (Fajr-based day cycle, preserves evening adhkar across midnight), reactive period transitions | done, unit-tested |
@@ -47,7 +48,9 @@ Done from the CLI (`npm i -g firebase-tools`, `firebase login` as the owner acco
 - Verified on https://eslamalix.github.io/khatma/: anonymous sign-in and `users/{uid}/status/public` written.
 
 Redeploy config: `firebase deploy --only auth,firestore:rules --project quraan-8ae72`.
-**`firestore.rules` was tightened and is not deployed yet** — it now allows only the paths and field shapes the app writes (`readings` with its six fields, `profile/{state|groups|adhkar|audio}`, `status/public`), because anyone can open an anonymous account and an unconstrained subtree is a free way to burn the shared Spark quota. Deploy it with the command above and the rules simulator in the console will confirm the app's writes still pass.
+**`firestore.rules` must be deployed before the next app release**: the app now writes `users/{uid}/days/{YYYY-MM-DD}` and the owner summary at `users/{uid}`, and the currently deployed rules reject both (verified: `permission-denied`). The rules are backward compatible with the released app, so they can go up first, on their own.
+
+Earlier note, still true — **the rules were tightened** — it now allows only the paths and field shapes the app writes (`readings` with its six fields, `profile/{state|groups|adhkar|audio}`, `status/public`), because anyone can open an anonymous account and an unconstrained subtree is a free way to burn the shared Spark quota. Deploy it with the command above and the rules simulator in the console will confirm the app's writes still pass.
 Web app hosting is GitHub Pages from the `gh-pages` branch: `MSYS_NO_PATHCONV=1 npx ng build --base-href /khatma/`, copy `dist/quran-kpi/browser` to `gh-pages` with `404.html` (copy of index) and `.nojekyll`.
 
 Still open for the owner: restrict the web API key to `eslamalix.github.io` in Google Cloud console; app name + icon; adhkar text review; licence check for the Quran data source before launch.

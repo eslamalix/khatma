@@ -5,7 +5,33 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == uid;
     }
 
-    // One counted visit to a mushaf page: exactly the fields the app writes, and nothing else.
+    // The app owner, for the dashboard over all readers. The list lives at config/admins ({ uids: [...] })
+    // and is written from the Firebase console only — rules reads are not themselves subject to rules.
+    // Always put mine(uid) first so a normal request never pays for this lookup.
+    function owner() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/config/admins)
+        && request.auth.uid in get(/databases/$(database)/documents/config/admins).data.uids;
+    }
+
+    // One reader's totals, the document the dashboard lists.
+    function isSummary() {
+      return request.resource.data.keys().hasOnly([
+        'khatma', 'lastPage', 'lastReadAt', 'totalMs', 'pagesThisKhatma', 'visits', 'readingDays',
+        'firstReadAt', 'dailyGoalPages', 'name', 'email', 'anonymous', 'appVersion', 'updatedAt'
+      ]);
+    }
+
+    // One day of reading, held as a single document.
+    function isDay() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['date', 'visits', 'pages', 'totalMs', 'khatma', 'firstAt', 'lastAt', 'updatedAt'])
+        && d.visits is list && d.visits.size() <= 2000
+        && d.pages is number && d.totalMs is number && d.khatma is number;
+    }
+
+    // One counted visit to a mushaf page, in the older per-visit shape kept for accounts written before
+    // day documents. Nothing writes these any more; they are read once and stored back as days.
     function isReading() {
       let d = request.resource.data;
       return d.keys().hasOnly(['id', 'page', 'khatma', 'startAt', 'endAt', 'durationMs'])
@@ -17,26 +43,46 @@ service cloud.firestore {
         && d.durationMs is number && d.durationMs >= 0;
     }
 
+    // Lets the owner dashboard chart days across everybody in one collection-group query, instead of
+    // walking every reader. Writes stay under the per-user rules below.
+    match /{path=**}/days/{date} {
+      allow read: if owner();
+    }
+
     // Each person reads and writes only their own data, and only in the shapes the app uses:
     // anyone can open an anonymous account, so an unconstrained subtree is a free-quota target.
     match /users/{uid} {
+      allow read: if mine(uid) || owner();
+      allow create, update: if mine(uid) && isSummary();
+      allow delete: if mine(uid);
+
+      match /days/{date} {
+        allow read: if mine(uid) || owner();
+        allow create, update: if mine(uid) && isDay();
+        allow delete: if mine(uid);
+      }
+
       match /readings/{readingId} {
-        allow read: if mine(uid);
-        allow write: if mine(uid) && isReading();
+        allow read: if mine(uid) || owner();
+        allow create, update: if mine(uid) && isReading();
+        allow delete: if mine(uid);
       }
 
       // Device documents: `state` is the reading state itself, the rest are { data, updatedAt } wrappers.
+      // Private to the reader: the dashboard has no business in someone's ayah groups or adhkar.
       match /profile/{name} {
         allow read: if mine(uid);
-        allow write: if mine(uid) && (
+        allow create, update: if mine(uid) && (
           name == 'state'
           || (name in ['groups', 'adhkar', 'audio'] && request.resource.data.keys().hasOnly(['data', 'updatedAt']))
         );
+        allow delete: if mine(uid);
       }
 
       // Family sharing (phase 3) will widen this read to the members of the same family.
       match /status/public {
-        allow read, write: if mine(uid);
+        allow read: if mine(uid) || owner();
+        allow create, update, delete: if mine(uid);
       }
     }
   }
