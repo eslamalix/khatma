@@ -8,7 +8,17 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { ar, AYAHS, CARDS, counted, dayMonth, SURAHS } from '../../core/format';
+import {
+  ar,
+  AYAHS,
+  CARDS,
+  counted,
+  DAYS,
+  dayMonth,
+  PAGES,
+  shortDuration,
+  SURAHS,
+} from '../../core/format';
 import { surahName } from '../../core/quran/quran-meta';
 import {
   filterReflections,
@@ -30,6 +40,13 @@ import { labelOf, ReflectionSheet } from './reflection-sheet';
  * دفتر التدبر: every card the reader made, by theme. Pick "العذاب" and those cards sit together in
  * mushaf order, with the reader's notes under their ayahs and a map of where the ayahs fall.
  */
+const weekday = new Intl.DateTimeFormat('ar-EG', { weekday: 'narrow' });
+const weekdayLong = new Intl.DateTimeFormat('ar-EG', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+});
+
 @Component({
   selector: 'app-tadabbur',
   imports: [Icon, Sheet, FormsModule, ReflectionSheet],
@@ -89,6 +106,22 @@ export class Tadabbur {
   protected readonly spreadColor = computed(
     () => `var(--t-${this.activeTheme()?.color ?? 'green'})`,
   );
+
+  /** Tadabbur reading, kept apart from the khatma: time today, this week, overall, pages and days. */
+  protected readonly stats = this.store.stats;
+  protected readonly duration = shortDuration;
+  protected readonly pagesLabel = (n: number) => counted(n, PAGES);
+  protected readonly daysLabel = (n: number) => (n === 1 ? 'يوم واحد' : counted(n, DAYS));
+  protected readonly week = computed(() => {
+    const days = this.stats().week;
+    const max = Math.max(1, ...days.map((d) => d.ms));
+    return days.map((d) => ({
+      ...d,
+      label: weekday.format(new Date(`${d.date}T12:00:00`)),
+      height: d.ms ? Math.max(6, Math.round((d.ms / max) * 100)) : 0,
+      tip: `${weekdayLong.format(new Date(`${d.date}T12:00:00`))}: ${d.ms ? shortDuration(d.ms) : 'لا تدبّر'}`,
+    }));
+  });
 
   // The reflection card.
   protected readonly cardOpen = signal(false);

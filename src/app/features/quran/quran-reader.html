@@ -1,33 +1,51 @@
 <header class="kpis chrome-top">
-  @if (store.wird(); as w) {
-    <div class="kpi" [class.wird-done]="w.done">
-      <span class="kpi-label">ورد اليوم</span>
-      <span class="kpi-value">
-        @if (w.done) {
-          <app-icon name="check" [size]="15" [stroke]="2.6" /> {{ ar(w.read) }}
-        } @else {
-          {{ ar(w.read) }} من {{ ar(w.goal) }}
-        }
-      </span>
+  @if (tadabbur.active()) {
+    <!-- Tadabbur has its own numbers: time and pages today, and the cards made. None of it is khatma time. -->
+    <div class="kpi tadabbur-kpi">
+      <span class="kpi-label">تدبّر اليوم</span>
+      <span class="kpi-value">{{ tadabburToday() }}</span>
+    </div>
+    <span class="divider"></span>
+    <div class="kpi tadabbur-kpi">
+      <span class="kpi-label">صفحات اليوم</span>
+      <span class="kpi-value">{{ ar(tadabbur.stats().todayPages) }}</span>
+    </div>
+    <span class="divider"></span>
+    <div class="kpi tadabbur-kpi">
+      <span class="kpi-label">البطاقات</span>
+      <span class="kpi-value">{{ ar(tadabbur.reflections().length) }}</span>
     </div>
   } @else {
+    @if (store.wird(); as w) {
+      <div class="kpi" [class.wird-done]="w.done">
+        <span class="kpi-label">ورد اليوم</span>
+        <span class="kpi-value">
+          @if (w.done) {
+            <app-icon name="check" [size]="15" [stroke]="2.6" /> {{ ar(w.read) }}
+          } @else {
+            {{ ar(w.read) }} من {{ ar(w.goal) }}
+          }
+        </span>
+      </div>
+    } @else {
+      <div class="kpi">
+        <span class="kpi-label">المدة المتبقية</span>
+        <span class="kpi-value">{{ remainingTime() }}</span>
+      </div>
+    }
+    <span class="divider"></span>
     <div class="kpi">
-      <span class="kpi-label">المدة المتبقية</span>
-      <span class="kpi-value">{{ remainingTime() }}</span>
+      <span class="kpi-label">المتبقي من الختمة</span>
+      <span class="kpi-value">{{ remainingPct() }}</span>
     </div>
-  }
-  <span class="divider"></span>
-  <div class="kpi">
-    <span class="kpi-label">المتبقي من الختمة</span>
-    <span class="kpi-value">{{ remainingPct() }}</span>
-  </div>
-  <span class="divider"></span>
-  <div class="kpi">
-    <span class="kpi-label">متوسط الصفحة</span>
-    <span class="kpi-value">{{ avg() }}</span>
-  </div>
-  @if (store.wird(); as w) {
-    <span class="wird-line" aria-hidden="true"><span [style.transform]="'scaleX(' + w.ratio + ')'"></span></span>
+    <span class="divider"></span>
+    <div class="kpi">
+      <span class="kpi-label">متوسط الصفحة</span>
+      <span class="kpi-value">{{ avg() }}</span>
+    </div>
+    @if (store.wird(); as w) {
+      <span class="wird-line" aria-hidden="true"><span [style.transform]="'scaleX(' + w.ratio + ')'"></span></span>
+    }
   }
 </header>
 
@@ -36,22 +54,24 @@
   (touchstart)="onTouchStart($event)" (touchmove)="onTouchMove($event)" (touchend)="onTouchEnd()"
   (touchcancel)="onTouchEnd()">
   <div class="track"
-    [style.width.px]="readingMode() === 'horizontal' ? width() * total : width()"
-    [style.height.px]="readingMode() === 'vertical' ? height() * total : null">
-    @for (p of slides(); track p) {
-      <div class="slide"
+    [style.width.px]="readingMode() === 'horizontal' ? width() * unitCount() : width()"
+    [style.height.px]="readingMode() === 'vertical' ? height() * unitCount() : null">
+    @for (slide of slides(); track slide.unit) {
+      <div class="slide" [class.spread]="slide.pages.length > 1"
         [style.width.px]="width()"
-        [style.inset-inline-start.px]="readingMode() === 'horizontal' ? slideOffset(p) : null"
-        [style.top.px]="readingMode() === 'vertical' ? slideOffsetVertical(p) : null">
-        <app-mushaf-page
-          [page]="p"
-          [fontScale]="scale()"
-          [selectedRange]="selectedRange()"
-          [playingAyah]="audio.current()"
-          [marks]="tadabbur.marks()"
-          [markMode]="tadabbur.active()"
-          [collected]="tadabbur.collectedKeys()"
-          (ayahClicked)="onAyahClicked($event)" />
+        [style.inset-inline-start.px]="readingMode() === 'horizontal' ? slideOffset(slide.unit) : null"
+        [style.top.px]="readingMode() === 'vertical' ? slideOffsetVertical(slide.unit) : null">
+        @for (p of slide.pages; track p) {
+          <app-mushaf-page
+            [page]="p"
+            [fontScale]="scale()"
+            [selectedRange]="selectedRange()"
+            [playingAyah]="audio.current()"
+            [marks]="tadabbur.marks()"
+            [markMode]="tadabbur.active()"
+            [collected]="tadabbur.collectedKeys()"
+            (ayahClicked)="onAyahClicked($event)" />
+        }
       </div>
     }
   </div>
@@ -60,7 +80,7 @@
 <button type="button" class="side prev" (click)="go(-1)" [disabled]="visiblePage() <= 1" aria-label="الصفحة السابقة">
   <app-icon name="chevronRight" [size]="24" [stroke]="2" />
 </button>
-<button type="button" class="side next" (click)="go(1)" [disabled]="visiblePage() >= total" aria-label="الصفحة التالية">
+<button type="button" class="side next" (click)="go(1)" [disabled]="isLast()" aria-label="الصفحة التالية">
   <app-icon name="chevronLeft" [size]="24" [stroke]="2" />
 </button>
 
@@ -71,7 +91,7 @@
     <app-icon name="headphones" [size]="22" [stroke]="1.9" />
   </button>
   <div class="pill">
-    <button type="button" class="seg strong" (click)="openJump('page')">{{ ar(visiblePage()) }}</button>
+    <button type="button" class="seg strong" (click)="openJump('page')">{{ pageLabel() }}</button>
     <span class="sep"></span>
     <button type="button" class="seg" (click)="openJump('surah')">{{ surahLabel() }}</button>
     <span class="sep"></span>
@@ -283,6 +303,16 @@
         <button type="button" [attr.aria-pressed]="readingMode() === 'vertical'" (click)="setReadingMode('vertical')">تمرير عمودي</button>
       </div>
     </section>
+
+    @if (canSpread()) {
+      <section class="settings-group">
+        <h4 class="settings-title">عرض الصفحات</h4>
+        <div class="segmented" role="group">
+          <button type="button" [attr.aria-pressed]="spreadPref()" (click)="setSpread(true)">صفحتان متقابلتان</button>
+          <button type="button" [attr.aria-pressed]="!spreadPref()" (click)="setSpread(false)">صفحة واحدة</button>
+        </div>
+      </section>
+    }
 
     <section class="settings-group">
       <h4 class="settings-title">حجم الخط</h4>

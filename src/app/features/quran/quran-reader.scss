@@ -157,6 +157,17 @@
 
 .track { position: relative; height: 100%; }
 
+/* Two facing pages: odd on the right, even on the left (RTL order), a narrow gutter between them. */
+.slide.spread {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 14px;
+  padding-inline: 92px;
+  app-mushaf-page { flex: 1 1 0; min-width: 0; max-width: 600px; }
+}
+.tadabbur-kpi .kpi-value { color: var(--accent); }
+
 .slide {
   position: absolute;
   top: 0;

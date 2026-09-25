@@ -1,6 +1,7 @@
 import { computed, Injectable, signal } from '@angular/core';
 import { CloudSync, injectOptional } from '../sync/cloud-sync';
 import {
+  addVisitToDays,
   ayahKey,
   buildMarks,
   CardAyah,
@@ -14,13 +15,15 @@ import {
   ThemeColor,
   THEME_COLORS,
   upgradeReflections,
+  tadabburStats,
   withAyahs,
 } from './tadabbur';
+import { PageVisit } from '../timing/timing-engine';
 
 const DATA_KEY = 'khatma.tadabbur';
 const UPDATED_KEY = 'khatma.tadabbur.updated';
-/** Device preference, not synced: whether the reader is in tadabbur mode. */
-const MODE_KEY = 'khatma.tadabbur.mode';
+/** Where tadabbur reading stopped: its own place in the mushaf, apart from the khatma's. */
+const PAGE_KEY = 'khatma.tadabbur.page';
 /** Notes are typed a letter at a time; the cloud gets the text once the reader pauses. */
 const CLOUD_DEBOUNCE_MS = 3000;
 
@@ -40,8 +43,13 @@ export class TadabburStore {
   /** Ayah key → what to paint on the page. */
   readonly marks = computed(() => buildMarks(this.reflections(), this.themes()));
 
+  /** Tadabbur reading time and pages: today, this week, all time. */
+  readonly stats = computed(() => tadabburStats(this.data().days ?? {}));
+  /** The page tadabbur reading stopped on, or null before the first tadabbur reading. */
+  readonly lastPage = signal<number | null>(this.loadPage());
+
   /** The reader is gathering ayahs: a tap on an ayah collects it instead of selecting it. */
-  readonly active = signal(this.pref() === '1');
+  readonly active = signal(false);
   /** Ayahs gathered so far, in mushaf order; they survive page turns until they go on a card. */
   readonly collection = signal<CardAyah[]>([]);
   readonly collectedKeys = computed(
@@ -64,6 +72,7 @@ export class TadabburStore {
           themes: data.themes,
           reflections: upgradeReflections(data.reflections),
           removed: pruneRemoved(data.removed ?? {}),
+          days: data.days ?? {},
         });
         this.saveLocal(updatedAt);
       },
@@ -95,14 +104,12 @@ export class TadabburStore {
 
   // ── Mode and gathering ────────────────────────────────────────────────
 
+  /**
+   * Tadabbur mode is entered on purpose (the lamp, or a card or the journal) and never outlives the
+   * mushaf screen, so "continue reading" always lands on the khatma. Turning it off clears what was gathered.
+   */
   setActive(on: boolean) {
     this.active.set(on);
-    try {
-      if (on) localStorage.setItem(MODE_KEY, '1');
-      else localStorage.removeItem(MODE_KEY);
-    } catch {
-      // Preference only.
-    }
     if (!on) {
       this.collection.set([]);
       this.targetId.set(null);
@@ -142,6 +149,31 @@ export class TadabburStore {
     this.targetId.set(id);
     this.collection.set([]);
     this.setActive(true);
+  }
+
+  // ── Reading time ──────────────────────────────────────────────────────
+
+  /** A page read in tadabbur mode: counted here, never in the khatma. */
+  addVisit(visit: PageVisit) {
+    this.patch((d) => ({ ...d, days: addVisitToDays(d.days ?? {}, visit) }));
+  }
+
+  setLastPage(page: number) {
+    this.lastPage.set(page);
+    try {
+      localStorage.setItem(PAGE_KEY, String(page));
+    } catch {
+      // Preference only.
+    }
+  }
+
+  private loadPage(): number | null {
+    try {
+      const page = Number(localStorage.getItem(PAGE_KEY));
+      return page >= 1 && page <= 604 ? page : null;
+    } catch {
+      return null;
+    }
   }
 
   // ── Themes ────────────────────────────────────────────────────────────
@@ -324,6 +356,7 @@ export class TadabburStore {
           themes: saved.themes,
           reflections: upgradeReflections(saved.reflections),
           removed: pruneRemoved(saved.removed ?? {}),
+          days: saved.days ?? {},
         };
       }
     } catch {
@@ -333,7 +366,12 @@ export class TadabburStore {
   }
 
   private defaults(): TadabburData {
-    return { themes: DEFAULT_THEMES.map((t) => ({ ...t })), reflections: [], removed: {} };
+    return {
+      themes: DEFAULT_THEMES.map((t) => ({ ...t })),
+      reflections: [],
+      removed: {},
+      days: {},
+    };
   }
 
   private updatedAt(): number {
@@ -341,14 +379,6 @@ export class TadabburStore {
       return Number(localStorage.getItem(UPDATED_KEY)) || 0;
     } catch {
       return 0;
-    }
-  }
-
-  private pref(): string | null {
-    try {
-      return localStorage.getItem(MODE_KEY);
-    } catch {
-      return null;
     }
   }
 }

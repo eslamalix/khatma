@@ -1,3 +1,4 @@
+import { splitSpread } from './reading-timer';
 import { PageVisit, TimingEngine } from './timing-engine';
 
 const SEC = 1000;
@@ -83,5 +84,16 @@ describe('TimingEngine', () => {
     engine.open(9);
     advance(15 * SEC);
     expect(engine.elapsedMs()).toBe(15 * SEC);
+  });
+});
+
+describe('splitSpread', () => {
+  it('shares a spread visit evenly between the two facing pages', () => {
+    const visit = { page: 45, startAt: 1, endAt: 61_001, durationMs: 60_000 };
+    expect(splitSpread(visit, 46)).toEqual([
+      { page: 45, startAt: 1, endAt: 61_001, durationMs: 30_000 },
+      { page: 46, startAt: 1, endAt: 61_001, durationMs: 30_000 },
+    ]);
+    expect(splitSpread(visit, null)).toEqual([visit]);
   });
 });

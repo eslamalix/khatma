@@ -44,9 +44,17 @@ export interface Reflection {
   updatedAt: number;
 }
 
+/** One day of reading in tadabbur mode: active time and the pages it was spent on. */
+export interface TadabburDay {
+  ms: number;
+  pages: number[];
+}
+
 export interface TadabburData {
   themes: TadabburTheme[];
   reflections: Reflection[];
+  /** Reading done in tadabbur mode, by local date (YYYY-MM-DD); kept apart from the khatma. */
+  days?: Record<string, TadabburDay>;
   /** Ids of deleted themes and cards, with when they were deleted. */
   removed: Record<string, number>;
 }
@@ -309,11 +317,17 @@ export function mergeTadabbur(local: TadabburData, cloud: Partial<TadabburData>)
     return [...out.values()];
   };
 
+  const days = mergeDays(local.days ?? {}, cloud.days ?? {});
+  const same = (x: Record<string, TadabburDay>) =>
+    JSON.stringify(days) === JSON.stringify(mergeDays(x, {}));
+  if (!same(cloud.days ?? {})) cleanup = true;
+  if (!same(local.days ?? {})) changed = true;
+
   const themes = mergeList(local.themes, cloud.themes);
   const reflections = mergeList(local.reflections, upgradeReflections(cloud.reflections ?? []));
   // Something deleted on the other device while it was still here.
   if ([...local.themes, ...local.reflections].some((item) => removed[item.id])) changed = true;
-  return { data: { themes, reflections, removed }, changed, cleanup };
+  return { data: { themes, reflections, removed, days }, changed, cleanup };
 }
 
 /** Deletions older than the window cannot still be in flight between devices. */
@@ -323,4 +337,92 @@ export function pruneRemoved(
   ttlMs = 180 * 24 * 60 * 60 * 1000,
 ) {
   return Object.fromEntries(Object.entries(removed).filter(([, at]) => at > now - ttlMs));
+}
+
+// ── Tadabbur reading time ─────────────────────────────────────────────
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** Local calendar date of a moment, as YYYY-MM-DD. */
+export function localDate(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Adds one counted page visit to the day it ended on. */
+export function addVisitToDays(
+  days: Record<string, TadabburDay>,
+  visit: { page: number; endAt: number; durationMs: number },
+): Record<string, TadabburDay> {
+  const date = localDate(visit.endAt);
+  const day = days[date] ?? { ms: 0, pages: [] };
+  const pages = day.pages.includes(visit.page)
+    ? day.pages
+    : [...day.pages, visit.page].sort((a, b) => a - b);
+  return { ...days, [date]: { ms: day.ms + visit.durationMs, pages } };
+}
+
+/**
+ * Two devices' copies of the same days. A day's time cannot be told apart by device, so the larger
+ * total is kept (never double counted), and the pages of both are kept.
+ */
+export function mergeDays(
+  a: Record<string, TadabburDay>,
+  b: Record<string, TadabburDay>,
+): Record<string, TadabburDay> {
+  const out: Record<string, TadabburDay> = {};
+  for (const date of [...new Set([...Object.keys(a), ...Object.keys(b)])].sort()) {
+    const x = a[date];
+    const y = b[date];
+    if (!x || !y) {
+      out[date] = (x ?? y)!;
+      continue;
+    }
+    out[date] = {
+      ms: Math.max(x.ms, y.ms),
+      pages: [...new Set([...x.pages, ...y.pages])].sort((m, n) => m - n),
+    };
+  }
+  return out;
+}
+
+export interface TadabburStats {
+  todayMs: number;
+  weekMs: number;
+  totalMs: number;
+  /** Distinct mushaf pages ever read in tadabbur mode. */
+  pages: number;
+  todayPages: number;
+  /** Days with any tadabbur reading. */
+  days: number;
+  /** Last seven days, oldest first, for a small bar chart. */
+  week: { date: string; ms: number; today: boolean }[];
+}
+
+export function tadabburStats(days: Record<string, TadabburDay>, now = Date.now()): TadabburStats {
+  const today = localDate(now);
+  const week: TadabburStats['week'] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const date = localDate(d.getTime());
+    week.push({ date, ms: days[date]?.ms ?? 0, today: date === today });
+  }
+  const all = new Set<number>();
+  let totalMs = 0;
+  let active = 0;
+  for (const day of Object.values(days)) {
+    totalMs += day.ms;
+    if (day.ms > 0) active++;
+    for (const p of day.pages) all.add(p);
+  }
+  return {
+    todayMs: days[today]?.ms ?? 0,
+    weekMs: week.reduce((sum, d) => sum + d.ms, 0),
+    totalMs,
+    pages: all.size,
+    todayPages: days[today]?.pages.length ?? 0,
+    days: active,
+    week,
+  };
 }

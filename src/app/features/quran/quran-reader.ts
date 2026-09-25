@@ -47,6 +47,18 @@ import { CollectSheet } from '../tadabbur/collect-sheet';
 const WINDOW = 2;
 const SETTLE_MS = 140;
 const TAFSIR_MAX_AYAHS = 10;
+/** Wide enough (and landscape) for two facing pages, like an open mushaf on a desk. */
+const SPREAD_MIN_WIDTH = 900;
+/** Device preference: two facing pages on wide screens (on unless turned off). */
+const SPREAD_KEY = 'khatma.spread';
+
+const readSpreadPref = () => {
+  try {
+    return localStorage.getItem(SPREAD_KEY) !== '0';
+  } catch {
+    return true;
+  }
+};
 
 type JumpTab = 'page' | 'surah' | 'juz';
 
@@ -76,7 +88,7 @@ export class QuranReader {
   protected readonly awradStore = inject(AwradStore);
   protected readonly audio = inject(QuranAudioService);
   protected readonly tafsirService = inject(TafsirService);
-  private readonly timer = inject(ReadingTimer);
+  protected readonly timer = inject(ReadingTimer);
   private readonly pages = inject(QuranPages);
   private readonly pager = viewChild.required<ElementRef<HTMLElement>>('pager');
   private readonly player = viewChild.required(QuranPlayer);
@@ -95,12 +107,47 @@ export class QuranReader {
   protected readonly height = signal(0);
   /** Page under the viewport right now (follows the finger). */
   readonly visiblePage = signal(1);
+
+  /**
+   * Two facing pages on a wide screen (P6): odd page on the right, even on the left, as in a printed
+   * mushaf. The pager then moves by spreads ("units") instead of pages; `visiblePage` stays a page number,
+   * the right-hand page of the spread.
+   */
+  protected readonly spreadPref = signal(readSpreadPref());
+  protected readonly canSpread = computed(
+    () => this.readingMode() === 'horizontal' && this.width() >= SPREAD_MIN_WIDTH && this.width() > this.height(),
+  );
+  protected readonly spread = computed(() => this.spreadPref() && this.canSpread());
+  protected readonly unitCount = computed(() => (this.spread() ? Math.ceil(TOTAL_PAGES / 2) : TOTAL_PAGES));
+  protected unitOf(page: number) {
+    return this.spread() ? Math.ceil(page / 2) : page;
+  }
+  private firstPageOf(unit: number) {
+    return this.spread() ? unit * 2 - 1 : unit;
+  }
+  /** The page a spread is named by (its right-hand, odd page); the page itself otherwise. */
+  private normalize(page: number) {
+    const p = clampPage(page);
+    return this.spread() && p % 2 === 0 ? p - 1 : p;
+  }
   protected readonly slides = computed(() => {
-    const p = this.visiblePage();
-    const list: number[] = [];
-    for (let i = Math.max(1, p - WINDOW); i <= Math.min(TOTAL_PAGES, p + WINDOW); i++) list.push(i);
+    const u = this.unitOf(this.visiblePage());
+    const list: { unit: number; pages: number[] }[] = [];
+    for (let i = Math.max(1, u - WINDOW); i <= Math.min(this.unitCount(), u + WINDOW); i++) {
+      const first = this.firstPageOf(i);
+      list.push({ unit: i, pages: this.spread() && first < TOTAL_PAGES ? [first, first + 1] : [first] });
+    }
     return list;
   });
+  protected readonly pageLabel = computed(() => {
+    const p = this.visiblePage();
+    return this.spread() && p < TOTAL_PAGES ? `${ar(p)}–${ar(p + 1)}` : ar(p);
+  });
+  /** Tadabbur time today, including the page open right now. */
+  protected readonly tadabburToday = computed(() =>
+    shortDuration(this.tadabbur.stats().todayMs + (this.tadabbur.active() ? this.timer.elapsedMs() : 0)),
+  );
+  protected readonly isLast = computed(() => this.unitOf(this.visiblePage()) >= this.unitCount());
 
   protected readonly surahLabel = computed(() => surahName(surahAtPage(this.visiblePage())));
   protected readonly juzLabel = computed(() => `الجزء ${ar(juzAtPage(this.visiblePage()))}`);
@@ -171,6 +218,10 @@ export class QuranReader {
     const t = this.tadabbur.target();
     return t ? labelOf(t) : '';
   });
+  /** Tadabbur mode as last applied here; null until the reader has opened its first page. */
+  private mode: boolean | null = null;
+  /** "إضافة آيات" from a card: enter tadabbur on the page the reader is on. */
+  private stayOnSwitch = false;
   private undoTimer: ReturnType<typeof setTimeout> | null = null;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -222,9 +273,14 @@ export class QuranReader {
       destroyRef.onDestroy(() => observer.disconnect());
 
       await this.store.whenReady();
+      // Tadabbur reading keeps its own place and its own time, apart from the khatma.
+      const tadabbur = this.tadabbur.active();
+      this.timer.setTarget(tadabbur ? 'tadabbur' : 'khatma');
+      this.mode = tadabbur;
+      const home = tadabbur ? (this.tadabbur.lastPage() ?? this.store.state().lastPage) : this.store.state().lastPage;
       // `/quran?page=N` (from the tadabbur journal) opens that page once, then the URL is tidied.
       const asked = Number(this.route.snapshot.queryParamMap.get('page'));
-      const start = clampPage(asked >= 1 ? asked : this.store.state().lastPage);
+      const start = this.normalize(asked >= 1 ? asked : home);
       if (this.route.snapshot.queryParamMap.has('page')) {
         void this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
       }
@@ -235,6 +291,8 @@ export class QuranReader {
     });
     destroyRef.onDestroy(() => {
       this.timer.stop();
+      // Leaving the mushaf ends tadabbur mode (gathered ayahs wait for the next visit).
+      this.tadabbur.active.set(false);
       this.audio.stop();
       if (this.settleTimer) clearTimeout(this.settleTimer);
       if (this.undoTimer) clearTimeout(this.undoTimer);
@@ -254,6 +312,29 @@ export class QuranReader {
       if (this.store.ready()) wasDone = done;
     });
 
+    // Entering or leaving tadabbur (from the lamp, or from "add ayahs" on a card) swaps where time goes
+    // and which place in the mushaf the reader is at.
+    effect(() => {
+      const on = this.tadabbur.active();
+      untracked(() => {
+        if (this.mode === null || on === this.mode) return;
+        this.mode = on;
+        this.switchMode(on);
+      });
+    });
+
+    // Two pages or one after a resize or a setting change: re-align on the same spread and re-time it.
+    effect(() => {
+      this.spread();
+      untracked(() => {
+        if (this.mode === null) return;
+        const page = this.normalize(this.visiblePage());
+        this.visiblePage.set(page);
+        this.afterRender(() => this.scrollToPage(page, false));
+        this.commit(page);
+      });
+    });
+
     // Recitation leads the reader: highlight follows the ayah and pages turn on their own.
     effect(() => {
       const cur = this.audio.current();
@@ -261,8 +342,8 @@ export class QuranReader {
     });
   }
 
-  protected slideOffset(page: number) {
-    return (page - 1) * this.width();
+  protected slideOffset(unit: number) {
+    return (unit - 1) * this.width();
   }
 
   protected slideOffsetVertical(page: number) {
@@ -276,7 +357,8 @@ export class QuranReader {
     if (!size || this.resizeHold !== null) return;
     if (Math.abs((isVert ? el.clientHeight : el.clientWidth) - size) > 1) return; // size signal not caught up yet
     const scrollPos = isVert ? el.scrollTop : Math.abs(el.scrollLeft);
-    const page = clampPage(Math.round(scrollPos / size) + 1);
+    const unit = Math.min(this.unitCount(), Math.max(1, Math.round(scrollPos / size) + 1));
+    const page = this.firstPageOf(unit);
     if (this.turningTo === page) this.turningTo = null;
     if (this.turningTo === null && page !== this.visiblePage()) this.visiblePage.set(page);
     if (this.settleTimer) clearTimeout(this.settleTimer);
@@ -288,12 +370,13 @@ export class QuranReader {
   }
 
   protected go(delta: number) {
-    this.goTo(this.visiblePage() + delta);
+    this.goTo(this.visiblePage() + delta * (this.spread() ? 2 : 1));
   }
 
   protected goTo(target: number) {
-    const page = clampPage(target);
-    const near = Math.abs(page - this.visiblePage()) <= 1;
+    const page = this.normalize(target);
+    if (page === this.visiblePage()) return;
+    const near = Math.abs(this.unitOf(page) - this.unitOf(this.visiblePage())) <= 1;
     this.turningTo = near ? page : null;
     this.visiblePage.set(page);
     // Render the target slide first, then scroll: smooth for a page turn, instant for a jump.
@@ -466,10 +549,11 @@ export class QuranReader {
 
   protected toggleTadabbur() {
     const on = !this.tadabbur.active();
-    this.tadabbur.setActive(on);
     this.selectedRange.set(null);
     this.dismissUndo();
-    if (on) this.showToast('المس الآيات التي تريد جمعها، متتالية أو متفرقة', 3000);
+    const hasPlace = this.tadabbur.lastPage() !== null;
+    this.tadabbur.setActive(on);
+    if (on && !hasPlace) this.showToast('المس الآيات التي تريد جمعها، متتالية أو متفرقة', 3000);
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(10);
   }
 
@@ -533,6 +617,7 @@ export class QuranReader {
 
   /** "إضافة آيات" on a card: back to the page, gathering for that card. */
   protected onAddAyahs(card: Reflection) {
+    this.stayOnSwitch = !this.tadabbur.active();
     this.tadabbur.addTo(card.id);
     this.showToast(`المس الآيات لتضيفها إلى «${labelOf(card)}»`, 3000);
   }
@@ -608,12 +693,14 @@ export class QuranReader {
   private async followRecitation(cur: AyahRef) {
     this.timer.ping();
     const here = this.visiblePage();
-    for (const p of [here, here + 1, here - 1]) {
+    for (const p of [here, here + 1, here - 1, here + 2]) {
       if (p < 1 || p > TOTAL_PAGES) continue;
       const page = await this.pages.get(p).catch(() => null);
       if (!page?.ayahs.some((a) => a.surah === cur.surah && a.ayah === cur.ayah)) continue;
       // Only turn if this is still the ayah playing and the reader has not moved meanwhile.
-      if (p !== here && this.audio.current() === cur && this.visiblePage() === here) this.goTo(p);
+      if (this.unitOf(p) !== this.unitOf(here) && this.audio.current() === cur && this.visiblePage() === here) {
+        this.goTo(p);
+      }
       return;
     }
   }
@@ -696,7 +783,7 @@ export class QuranReader {
       el.scrollTo({ top: (page - 1) * h, behavior: smooth ? 'smooth' : 'instant' });
     } else {
       const w = this.width() || el.getBoundingClientRect().width;
-      el.scrollTo({ left: -(page - 1) * w, behavior: smooth ? 'smooth' : 'instant' });
+      el.scrollTo({ left: -(this.unitOf(page) - 1) * w, behavior: smooth ? 'smooth' : 'instant' });
     }
   }
 
@@ -704,9 +791,35 @@ export class QuranReader {
     afterNextRender(fn, { injector: this.injector });
   }
 
+  /** Start timing the page (and its facing page in a spread, which shares the time). */
   private commit(page: number) {
-    this.timer.open(page);
-    this.pages.prefetch(page);
+    const partner = this.spread() && page < TOTAL_PAGES ? page + 1 : null;
+    this.timer.open(page, partner);
+    this.pages.prefetch(page, this.spread() ? 3 : 2);
+  }
+
+  protected setSpread(on: boolean) {
+    this.spreadPref.set(on);
+    try {
+      localStorage.setItem(SPREAD_KEY, on ? '1' : '0');
+    } catch {
+      // Preference only.
+    }
+  }
+
+  /** Each mode reopens where it was left: tadabbur never moves the khatma's place, nor the other way. */
+  private switchMode(on: boolean) {
+    const khatmaPage = this.store.state().lastPage;
+    const tadabburPage = this.tadabbur.lastPage();
+    this.timer.setTarget(on ? 'tadabbur' : 'khatma');
+    const stay = this.stayOnSwitch;
+    this.stayOnSwitch = false;
+    const to = this.normalize(on ? (stay ? this.visiblePage() : (tadabburPage ?? this.visiblePage())) : khatmaPage);
+    if (to !== this.visiblePage()) {
+      this.showToast(on ? `تكمل تدبّرك من صفحة ${ar(to)}` : `رجعت لموضعك في الختمة، صفحة ${ar(to)}`, 2600);
+    }
+    this.goTo(to);
+    this.commit(to);
   }
 }
 

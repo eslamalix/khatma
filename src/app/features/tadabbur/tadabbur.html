@@ -16,6 +16,41 @@
     <app-icon name="chevronLeft" [size]="20" [stroke]="2" />
   </button>
 
+  <!-- Tadabbur reading has its own numbers; none of it counts toward the khatma. -->
+  <section class="reading" aria-label="قراءة التدبر">
+    <div class="tiles">
+      <div class="tile">
+        <span class="tile-label">اليوم</span>
+        <span class="tile-value">{{ duration(stats().todayMs) }}</span>
+        @if (stats().todayPages) {
+          <span class="tile-sub">{{ pagesLabel(stats().todayPages) }}</span>
+        }
+      </div>
+      <div class="tile">
+        <span class="tile-label">هذا الأسبوع</span>
+        <span class="tile-value">{{ duration(stats().weekMs) }}</span>
+      </div>
+      <div class="tile">
+        <span class="tile-label">الإجمالي</span>
+        <span class="tile-value">{{ duration(stats().totalMs) }}</span>
+        @if (stats().days) {
+          <span class="tile-sub"
+            >{{ pagesLabel(stats().pages) }} في {{ daysLabel(stats().days) }}</span
+          >
+        }
+      </div>
+    </div>
+    <div class="week" role="img" [attr.aria-label]="'وقت التدبر في آخر سبعة أيام'">
+      @for (d of week(); track d.date) {
+        <div class="day" [class.today]="d.today" [attr.title]="d.tip">
+          <span class="bar-slot"><span class="bar" [style.height.%]="d.height"></span></span>
+          <span class="day-label">{{ d.label }}</span>
+        </div>
+      }
+    </div>
+    <p class="apart">وقت التدبر منفصل عن الختمة ولا يُحسب فيها.</p>
+  </section>
+
   <!-- Themes as filters, each with how many ayahs it holds. -->
   <div class="filters" role="group" aria-label="المواضيع">
     <button type="button" class="filter" [class.on]="filter() === null" (click)="filter.set(null)">

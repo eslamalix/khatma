@@ -1,16 +1,19 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  addVisitToDays,
   ayahsLabel,
   buildMarks,
   CardAyah,
   DEFAULT_THEMES,
   filterReflections,
   juzSpread,
+  mergeDays,
   mergeTadabbur,
   normalizeArabic,
   Reflection,
   reflectionsAsText,
   TadabburData,
+  tadabburStats,
   upgradeReflection,
   withAyahs,
 } from './tadabbur';
@@ -247,5 +250,70 @@ describe('TadabburStore', () => {
   it('gives a new theme a colour not used yet', () => {
     expect(store.addTheme('الجنة').color).toBe('teal');
     expect(store.addTheme('   ').name).toBe('موضوع جديد');
+  });
+});
+
+describe('tadabbur reading time', () => {
+  const at = (date: string, hour = 10) =>
+    new Date(`${date}T${String(hour).padStart(2, '0')}:00:00`).getTime();
+
+  it('adds visits to the day they ended on, pages once each', () => {
+    let days = addVisitToDays({}, { page: 5, endAt: at('2026-09-20'), durationMs: 60_000 });
+    days = addVisitToDays(days, { page: 3, endAt: at('2026-09-20', 11), durationMs: 30_000 });
+    days = addVisitToDays(days, { page: 5, endAt: at('2026-09-21'), durationMs: 10_000 });
+    expect(days).toEqual({
+      '2026-09-20': { ms: 90_000, pages: [3, 5] },
+      '2026-09-21': { ms: 10_000, pages: [5] },
+    });
+  });
+
+  it('merges two devices without double counting a day', () => {
+    const merged = mergeDays(
+      { '2026-09-20': { ms: 90_000, pages: [3, 5] } },
+      { '2026-09-20': { ms: 60_000, pages: [7] }, '2026-09-19': { ms: 5_000, pages: [1] } },
+    );
+    expect(merged).toEqual({
+      '2026-09-19': { ms: 5_000, pages: [1] },
+      '2026-09-20': { ms: 90_000, pages: [3, 5, 7] },
+    });
+  });
+
+  it('sums today, the last seven days and all time', () => {
+    const stats = tadabburStats(
+      {
+        '2026-09-10': { ms: 1_000, pages: [1] },
+        '2026-09-20': { ms: 2_000, pages: [1, 2] },
+        '2026-09-25': { ms: 3_000, pages: [9] },
+      },
+      at('2026-09-25', 15),
+    );
+    expect(stats).toMatchObject({
+      todayMs: 3_000,
+      weekMs: 5_000,
+      totalMs: 6_000,
+      pages: 3,
+      todayPages: 1,
+      days: 3,
+    });
+    expect(stats.week.map((d) => d.date)).toEqual([
+      '2026-09-19',
+      '2026-09-20',
+      '2026-09-21',
+      '2026-09-22',
+      '2026-09-23',
+      '2026-09-24',
+      '2026-09-25',
+    ]);
+    expect(stats.week.at(-1)?.today).toBe(true);
+  });
+
+  it('keeps tadabbur time in its own store, never in the khatma', () => {
+    localStorage.clear();
+    const store = new TadabburStore();
+    store.addVisit({ page: 4, startAt: 0, endAt: Date.now(), durationMs: 20_000 });
+    store.setLastPage(4);
+    const reloaded = new TadabburStore();
+    expect(reloaded.stats().todayMs).toBe(20_000);
+    expect(reloaded.lastPage()).toBe(4);
   });
 });
