@@ -37,6 +37,7 @@ export const DAYS: Forms = ['يوم', 'يومان', 'أيام', 'يوماً'];
 export const PAGES: Forms = ['صفحة', 'صفحتان', 'صفحات', 'صفحة'];
 export const PASSAGES: Forms = ['مقطع واحد', 'مقطعان', 'مقاطع', 'مقطعاً'];
 export const AYAHS: Forms = ['آية واحدة', 'آيتان', 'آيات', 'آية'];
+export const CARDS: Forms = ['بطاقة واحدة', 'بطاقتان', 'بطاقات', 'بطاقة'];
 export const THEMES: Forms = ['موضوع واحد', 'موضوعان', 'مواضيع', 'موضوعاً'];
 export const SURAHS: Forms = ['سورة واحدة', 'سورتان', 'سور', 'سورة'];
 export const GROUPS: Forms = ['مجموعة واحدة', 'مجموعتان', 'مجموعات', 'مجموعة'];

@@ -40,8 +40,9 @@ import { QuranAudioService } from '../../core/quran/quran-audio.service';
 import { TafsirService } from '../../core/quran/tafsir.service';
 import { QuranPlayer } from './quran-player';
 import { TadabburStore } from '../../core/tadabbur/tadabbur.store';
-import { Reflection, ReflectionDraft, THEME_COLORS, ThemeColor } from '../../core/tadabbur/tadabbur';
-import { ReflectionSheet } from '../tadabbur/reflection-sheet';
+import { CardAyah, Reflection } from '../../core/tadabbur/tadabbur';
+import { labelOf, ReflectionSheet } from '../tadabbur/reflection-sheet';
+import { CollectSheet } from '../tadabbur/collect-sheet';
 
 const WINDOW = 2;
 const SETTLE_MS = 140;
@@ -58,7 +59,7 @@ export interface AyahRangeSelection {
 
 @Component({
   selector: 'app-quran-reader',
-  imports: [MushafPage, Icon, Sheet, FormsModule, QuranPlayer, ReflectionSheet, RouterLink],
+  imports: [MushafPage, Icon, Sheet, FormsModule, QuranPlayer, ReflectionSheet, CollectSheet, RouterLink],
   templateUrl: './quran-reader.html',
   styleUrl: './quran-reader.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -160,19 +161,18 @@ export class QuranReader {
   readonly tafsirItems = signal<{ ayah: number; text: string }[]>([]);
   readonly tafsirRef = signal<string>('');
 
-  // Tadabbur: the reflection card, an undo for the last mark, and a sheet to add a theme from the strip.
+  // Tadabbur: the card sheet, the save-to-card sheet, and an undo for the last change.
   protected readonly reflectionOpen = signal(false);
   protected readonly reflectionId = signal<string | null>(null);
-  protected readonly reflectionDraft = signal<ReflectionDraft | null>(null);
+  protected readonly collectOpen = signal(false);
   protected readonly undoToast = signal<{ text: string; run: () => void } | null>(null);
-  protected readonly newThemeOpen = signal(false);
-  protected readonly newThemeColor = signal<ThemeColor>('teal');
-  protected readonly themeColors = THEME_COLORS;
-  newThemeName = '';
+  protected readonly collectedCount = computed(() => counted(this.tadabbur.collection().length, AYAHS));
+  protected readonly targetLabel = computed(() => {
+    const t = this.tadabbur.target();
+    return t ? labelOf(t) : '';
+  });
   private undoTimer: ReturnType<typeof setTimeout> | null = null;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Ayahs marked since tadabbur mode was turned on, for a quiet count in the confirmation. */
-  private sessionMarks = 0;
 
   private settleTimer: ReturnType<typeof setTimeout> | null = null;
   /** Page to keep while the pager is being resized (rotation, window resize). */
@@ -468,88 +468,77 @@ export class QuranReader {
     const on = !this.tadabbur.active();
     this.tadabbur.setActive(on);
     this.selectedRange.set(null);
-    this.sessionMarks = 0;
     this.dismissUndo();
-    if (on) {
-      const focus = this.tadabbur.focusTheme();
-      this.showToast(focus ? `المس أي آية لتضيفها إلى «${focus.name}»` : 'المس أي آية لتكتب تأملك فيها', 3000);
-    }
+    if (on) this.showToast('المس الآيات التي تريد جمعها، متتالية أو متفرقة', 3000);
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(10);
   }
 
-  protected setFocus(themeId: string | null) {
-    this.tadabbur.setFocus(themeId);
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(6);
-  }
-
   /**
-   * In tadabbur mode one tap marks the ayah with the theme being looked for (the reader keeps reading);
-   * a tap on an ayah already marked opens its card to write about it. With no theme chosen, a tap opens
-   * a fresh card straight away.
+   * Gathering: each tap puts an ayah in (or takes it back out of) the collection, across pages and surahs,
+   * until it is saved on a card. With nothing gathered yet, a tap on an ayah already on a card opens that card.
    */
   private tadabburTap({ ayah, page }: { ayah: QuranAyah; page: number }) {
-    const existing = this.tadabbur.at(ayah.surah, ayah.ayah);
-    if (existing) {
-      this.openReflection(existing.id, null);
+    const gathering = this.tadabbur.collection().length > 0 || this.tadabbur.targetId() !== null;
+    const cards = this.tadabbur.cardsWith(ayah.surah, ayah.ayah);
+    if (!gathering && cards.length) {
+      this.openReflection(cards[0].id);
       return;
     }
-    const draft: ReflectionDraft = { surah: ayah.surah, from: ayah.ayah, to: ayah.ayah, page, text: ayah.words.join(' ') };
-    const focus = this.tadabbur.focusTheme();
-    if (!focus) {
-      this.openReflection(null, draft);
-      return;
-    }
-    const created = this.tadabbur.create(draft, [focus.id]);
-    const n = ++this.sessionMarks;
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(12);
-    const tally = n > 1 ? `، ${counted(n, AYAHS)} في هذه الجلسة` : '';
-    this.offerUndo(`أُضيفت إلى «${focus.name}»${tally}`, () => {
-      this.tadabbur.remove(created.id);
-      this.sessionMarks = Math.max(0, this.sessionMarks - 1);
-    });
+    this.tadabbur.toggleCollected(this.cardAyah(ayah, page));
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(10);
   }
 
-  /** The selection bar's "تدبّر": the card for exactly this range, new or already written. */
+  private cardAyah(ayah: QuranAyah, page: number): CardAyah {
+    return { surah: ayah.surah, ayah: ayah.ayah, page, text: ayah.words.join(' ') };
+  }
+
+  /** The strip's main button: straight onto the chosen card, or pick one. */
+  protected saveCollection() {
+    const target = this.tadabbur.target();
+    if (!target) {
+      this.collectOpen.set(true);
+      return;
+    }
+    const ayahs = this.tadabbur.collection();
+    this.tadabbur.addAyahs(target.id, ayahs);
+    this.tadabbur.clearCollection();
+    this.tadabbur.targetId.set(null);
+    this.openReflection(target.id);
+  }
+
+  protected cancelGathering() {
+    this.tadabbur.clearCollection();
+    this.tadabbur.targetId.set(null);
+  }
+
+  protected onCollected(card: Reflection) {
+    this.collectOpen.set(false);
+    this.openReflection(card.id);
+  }
+
+  /** The selection bar's "تدبّر": the selected ayahs go straight to the save-to-card sheet. */
   protected reflectOnSelection() {
     const r = this.selectedRange();
     if (!r) return;
-    const existing = this.tadabbur.exactly(r.surah, r.startAyah, r.endAyah);
-    const draft: ReflectionDraft = {
-      surah: r.surah,
-      from: r.startAyah,
-      to: r.endAyah,
-      page: this.lastTappedPage,
-      text: r.ayahs.map((a) => a.words.join(' ')).join(' ۝ '),
-    };
+    this.tadabbur.collect(r.ayahs.map((a) => this.cardAyah(a, this.lastTappedPage)));
     this.selectedRange.set(null);
-    this.openReflection(existing?.id ?? null, existing ? null : draft);
+    this.collectOpen.set(true);
   }
 
-  private openReflection(id: string | null, draft: ReflectionDraft | null) {
+  private openReflection(id: string) {
     this.dismissUndo();
     this.reflectionId.set(id);
-    this.reflectionDraft.set(draft);
     this.reflectionOpen.set(true);
   }
 
+  /** "إضافة آيات" on a card: back to the page, gathering for that card. */
+  protected onAddAyahs(card: Reflection) {
+    this.tadabbur.addTo(card.id);
+    this.showToast(`المس الآيات لتضيفها إلى «${labelOf(card)}»`, 3000);
+  }
+
   protected onReflectionRemoved({ reflection, index }: { reflection: Reflection; index: number }) {
-    this.offerUndo('حُذفت من التدبر', () => this.tadabbur.restore(reflection, index));
-  }
-
-  protected openNewTheme() {
-    const used = new Set(this.tadabbur.themes().map((t) => t.color));
-    this.newThemeColor.set(THEME_COLORS.find((c) => !used.has(c)) ?? 'slate');
-    this.newThemeName = '';
-    this.newThemeOpen.set(true);
-  }
-
-  protected confirmNewTheme() {
-    const name = this.newThemeName.trim();
-    if (!name) return;
-    const theme = this.tadabbur.addTheme(name, this.newThemeColor());
-    this.tadabbur.setFocus(theme.id);
-    this.newThemeOpen.set(false);
-    this.showToast(`المس أي آية لتضيفها إلى «${theme.name}»`, 3000);
+    this.offerUndo('حُذفت البطاقة', () => this.tadabbur.restore(reflection, index));
   }
 
   protected runUndo() {
@@ -637,7 +626,7 @@ export class QuranReader {
       this.saveToGroupOpen() ||
       this.tafsirOpen() ||
       this.reflectionOpen() ||
-      this.newThemeOpen() ||
+      this.collectOpen() ||
       (target instanceof Element && target.closest('input, select, textarea'))
     ) {
       return;

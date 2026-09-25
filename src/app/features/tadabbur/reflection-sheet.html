@@ -1,17 +1,60 @@
-<app-sheet [open]="open()" [title]="title()" (closed)="close()">
-  @if (subject(); as s) {
+<app-sheet [open]="open()" [title]="heading()" (closed)="close()">
+  @if (card(); as r) {
     <div class="card-body">
-      <blockquote class="ayah-text" [class.long]="ayahs().length > 2">
-        @for (text of ayahs(); track $index) {
-          <span
-            >{{ text }}&nbsp;<span class="end">۝{{ ar(s.from + $index) }}</span>
-          </span>
+      <input
+        class="title-field"
+        type="text"
+        [value]="title()"
+        (input)="onTitle(titleField.value)"
+        #titleField
+        maxlength="60"
+        placeholder="عنوان للبطاقة (اختياري)، مثل: قسوة القلوب"
+        aria-label="عنوان البطاقة"
+      />
+
+      <!-- The ayahs on this card; each can be taken off on its own. -->
+      <section class="block">
+        <div class="label-row">
+          <h3 class="label">الآيات</h3>
+          <span class="meta">{{ meta() }}</span>
+        </div>
+        @if (undoAyah(); as u) {
+          <div class="inline-undo" role="status">
+            <span>أُزيلت {{ surahName(u.surah) }} {{ ar(u.ayah) }}</span>
+            <button type="button" (click)="restoreAyah()">تراجع</button>
+          </div>
         }
-      </blockquote>
+        <ul class="ayahs">
+          @for (a of r.ayahs; track a.surah + ':' + a.ayah) {
+            <li class="ayah-row">
+              <div class="ayah-head">
+                <span class="ayah-ref">{{ surahName(a.surah) }}، الآية {{ ar(a.ayah) }}</span>
+                <button
+                  type="button"
+                  class="remove"
+                  (click)="removeAyah(a)"
+                  [attr.aria-label]="
+                    'إزالة ' + surahName(a.surah) + ' ' + ar(a.ayah) + ' من البطاقة'
+                  "
+                >
+                  <app-icon name="close" [size]="14" [stroke]="2.3" />
+                </button>
+              </div>
+              <p class="ayah-text">
+                {{ a.text }}&nbsp;<span class="end">۝{{ ar(a.ayah) }}</span>
+              </p>
+            </li>
+          }
+        </ul>
+        <button type="button" class="add-ayahs" (click)="gatherMore()">
+          <app-icon name="plus" [size]="15" [stroke]="2.3" />
+          <span>إضافة آيات من المصحف</span>
+        </button>
+      </section>
 
       <section class="block">
         <h3 class="label">المواضيع</h3>
-        <div class="themes" role="group" aria-label="مواضيع الآية">
+        <div class="themes" role="group" aria-label="مواضيع البطاقة">
           @for (t of store.themes(); track t.id) {
             <button
               type="button"
@@ -78,7 +121,7 @@
           (input)="onNote(noteField.value)"
           rows="4"
           placeholder="ماذا وقع في قلبك؟ ماذا فهمت، وبماذا ستعمل؟"
-          aria-label="تأملك في الآية"
+          aria-label="تأملك"
         ></textarea>
         <div class="prompts" aria-label="أسئلة تعين على التدبر">
           @for (p of prompts; track p) {
@@ -104,10 +147,10 @@
         </button>
         @if (tafsirOpen()) {
           @if (tafsir(); as items) {
-            @for (t of items; track t.ayah) {
+            @for (t of items; track t.ref) {
               <p class="tafsir-text">
                 @if (items.length > 1) {
-                  <b>{{ ar(t.ayah) }}.</b>
+                  <b>{{ t.ref }}.</b>
                 }
                 {{ t.text }}
               </p>
@@ -119,23 +162,21 @@
       </section>
 
       <footer class="actions">
-        @if (reflection()) {
-          <button
-            type="button"
-            class="icon-btn danger"
-            (click)="remove()"
-            aria-label="حذف من التدبر"
-          >
-            <app-icon name="trash" [size]="19" [stroke]="1.9" />
-          </button>
-        }
-        @if (showMushafLink() && reflection()) {
+        <button
+          type="button"
+          class="icon-btn danger"
+          (click)="deleteCard()"
+          aria-label="حذف البطاقة"
+        >
+          <app-icon name="trash" [size]="19" [stroke]="1.9" />
+        </button>
+        @if (showMushafLink()) {
           <button type="button" class="ghost" (click)="goToMushaf()">
             <app-icon name="quran" [size]="17" [stroke]="1.9" />
             <span>في المصحف</span>
           </button>
         }
-        <span class="meta">{{ created() }}</span>
+        <span class="spacer"></span>
         <button type="button" class="solid done" (click)="close()">تم</button>
       </footer>
     </div>

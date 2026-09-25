@@ -47,6 +47,8 @@ export class MushafPage {
   readonly marks = input<ReadonlyMap<string, AyahMark> | null>(null);
   /** Tadabbur mode: marks are drawn as coloured bands; otherwise only their ornament is tinted. */
   readonly markMode = input(false);
+  /** Ayahs being gathered for a tadabbur card (keyed `surah:ayah`). */
+  readonly collected = input<ReadonlySet<string> | null>(null);
   readonly ayahClicked = output<{ ayah: QuranAyah; pageAyahs: QuranAyah[]; page: number }>();
 
   protected readonly data = signal<QuranPage | null>(null);
@@ -63,6 +65,10 @@ export class MushafPage {
 
   protected markOf(a: QuranAyah): AyahMark | null {
     return this.marks()?.get(ayahKey(a.surah, a.ayah)) ?? null;
+  }
+
+  protected isCollected(a: QuranAyah): boolean {
+    return this.collected()?.has(ayahKey(a.surah, a.ayah)) ?? false;
   }
 
   protected markColor(a: QuranAyah): string | null {

@@ -1,25 +1,26 @@
 import { computed, Injectable, signal } from '@angular/core';
 import { CloudSync, injectOptional } from '../sync/cloud-sync';
 import {
+  ayahKey,
   buildMarks,
+  CardAyah,
   DEFAULT_THEMES,
-  isEmptyReflection,
+  hasAyah,
   mergeTadabbur,
   pruneRemoved,
   Reflection,
-  ReflectionDraft,
-  reflectionAt,
   TadabburData,
   TadabburTheme,
   ThemeColor,
   THEME_COLORS,
+  upgradeReflections,
+  withAyahs,
 } from './tadabbur';
 
 const DATA_KEY = 'khatma.tadabbur';
 const UPDATED_KEY = 'khatma.tadabbur.updated';
-/** Device preferences, not synced: whether the reader is in tadabbur mode and which theme it looks for. */
+/** Device preference, not synced: whether the reader is in tadabbur mode. */
 const MODE_KEY = 'khatma.tadabbur.mode';
-const FOCUS_KEY = 'khatma.tadabbur.focus';
 /** Notes are typed a letter at a time; the cloud gets the text once the reader pauses. */
 const CLOUD_DEBOUNCE_MS = 3000;
 
@@ -27,8 +28,9 @@ const newId = (prefix: string) =>
   `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
 /**
- * Tadabbur (docs/DECISIONS.md P20, T30): the reader's themes and the ayahs they marked under them, each
- * with an optional note. Kept on the device first and mirrored to one Firestore document like the groups.
+ * Tadabbur (docs/DECISIONS.md P20, T30): the reader's themes and cards, each card a set of ayahs with
+ * themes and a note. Kept on the device first and mirrored to one Firestore document like the groups.
+ * Also holds the ayahs being gathered in the mushaf before they go on a card.
  */
 @Injectable({ providedIn: 'root' })
 export class TadabburStore {
@@ -38,13 +40,16 @@ export class TadabburStore {
   /** Ayah key → what to paint on the page. */
   readonly marks = computed(() => buildMarks(this.reflections(), this.themes()));
 
-  /** The reader is hunting for a theme: a tap on an ayah marks it instead of selecting it. */
-  readonly active = signal(this.pref(MODE_KEY) === '1');
-  /** The theme a tap marks with; null means a tap opens a free reflection. */
-  readonly focusThemeId = signal<string | null>(this.loadFocus());
-  readonly focusTheme = computed(
-    () => this.themes().find((t) => t.id === this.focusThemeId()) ?? null,
+  /** The reader is gathering ayahs: a tap on an ayah collects it instead of selecting it. */
+  readonly active = signal(this.pref() === '1');
+  /** Ayahs gathered so far, in mushaf order; they survive page turns until they go on a card. */
+  readonly collection = signal<CardAyah[]>([]);
+  readonly collectedKeys = computed(
+    () => new Set(this.collection().map((a) => ayahKey(a.surah, a.ayah))),
   );
+  /** A card the reader chose to add more ayahs to ("إضافة آيات" on the card). */
+  readonly targetId = signal<string | null>(null);
+  readonly target = computed(() => this.get(this.targetId()));
 
   private readonly cloud = injectOptional(CloudSync);
   private cloudTimer: ReturnType<typeof setTimeout> | null = null;
@@ -57,7 +62,7 @@ export class TadabburStore {
         if (!Array.isArray(data.themes) || !Array.isArray(data.reflections)) return;
         this.data.set({
           themes: data.themes,
-          reflections: data.reflections,
+          reflections: upgradeReflections(data.reflections),
           removed: pruneRemoved(data.removed ?? {}),
         });
         this.saveLocal(updatedAt);
@@ -88,16 +93,55 @@ export class TadabburStore {
     }
   }
 
-  // ── Mode ──────────────────────────────────────────────────────────────
+  // ── Mode and gathering ────────────────────────────────────────────────
 
   setActive(on: boolean) {
     this.active.set(on);
-    this.setPref(MODE_KEY, on ? '1' : null);
+    try {
+      if (on) localStorage.setItem(MODE_KEY, '1');
+      else localStorage.removeItem(MODE_KEY);
+    } catch {
+      // Preference only.
+    }
+    if (!on) {
+      this.collection.set([]);
+      this.targetId.set(null);
+    }
   }
 
-  setFocus(themeId: string | null) {
-    this.focusThemeId.set(themeId);
-    this.setPref(FOCUS_KEY, themeId ?? '');
+  isCollected(surah: number, ayah: number) {
+    return this.collectedKeys().has(ayahKey(surah, ayah));
+  }
+
+  /** Tap on an ayah while gathering: in if it was out, out if it was in. Returns whether it is now in. */
+  toggleCollected(ayah: CardAyah): boolean {
+    if (this.isCollected(ayah.surah, ayah.ayah)) {
+      this.collection.update((list) =>
+        list.filter((a) => a.surah !== ayah.surah || a.ayah !== ayah.ayah),
+      );
+      return false;
+    }
+    this.collection.update((list) => withAyahs(list, [ayah]));
+    return true;
+  }
+
+  collect(ayahs: CardAyah[]) {
+    this.collection.update((list) => withAyahs(list, ayahs));
+  }
+
+  uncollect(surah: number, ayah: number) {
+    this.collection.update((list) => list.filter((a) => a.surah !== surah || a.ayah !== ayah));
+  }
+
+  clearCollection() {
+    this.collection.set([]);
+  }
+
+  /** Start gathering more ayahs for an existing card. */
+  addTo(id: string) {
+    this.targetId.set(id);
+    this.collection.set([]);
+    this.setActive(true);
   }
 
   // ── Themes ────────────────────────────────────────────────────────────
@@ -125,7 +169,7 @@ export class TadabburStore {
     }));
   }
 
-  /** The theme goes; reflections keep its id so undo brings every mark back as it was. */
+  /** The theme goes; cards keep its id so undo brings every colour back as it was. */
   deleteTheme(id: string): { theme: TadabburTheme; index: number } | null {
     const index = this.themes().findIndex((t) => t.id === id);
     if (index < 0) return null;
@@ -135,7 +179,6 @@ export class TadabburStore {
       themes: d.themes.filter((t) => t.id !== id),
       removed: { ...d.removed, [id]: Date.now() },
     }));
-    if (this.focusThemeId() === id) this.setFocus(this.themes()[0]?.id ?? null);
     return { theme, index };
   }
 
@@ -148,34 +191,30 @@ export class TadabburStore {
     });
   }
 
-  themeCount(themeId: string) {
-    return this.reflections().filter((r) => r.themes.includes(themeId)).length;
-  }
-
-  // ── Reflections ───────────────────────────────────────────────────────
+  // ── Cards ─────────────────────────────────────────────────────────────
 
   get(id: string | null): Reflection | null {
     return id ? (this.reflections().find((r) => r.id === id) ?? null) : null;
   }
 
-  at(surah: number, ayah: number): Reflection | null {
-    return reflectionAt(this.reflections(), surah, ayah);
+  /** Cards holding this ayah, the most recently edited first. */
+  cardsWith(surah: number, ayah: number): Reflection[] {
+    return this.reflections()
+      .filter((r) => hasAyah(r, surah, ayah))
+      .sort((a, b) => b.updatedAt - a.updatedAt);
   }
 
-  /** The reflection saved for exactly this range, if the reader already wrote one. */
-  exactly(surah: number, from: number, to: number): Reflection | null {
-    return (
-      this.reflections().find((r) => r.surah === surah && r.from === from && r.to === to) ?? null
-    );
-  }
-
-  create(draft: ReflectionDraft, themes: string[] = [], note = ''): Reflection {
+  create(
+    ayahs: CardAyah[],
+    opts: { title?: string; themes?: string[]; note?: string } = {},
+  ): Reflection {
     const now = Date.now();
     const reflection: Reflection = {
       id: newId('r'),
-      ...draft,
-      themes,
-      note,
+      title: opts.title?.trim() ?? '',
+      ayahs: withAyahs([], ayahs),
+      themes: opts.themes ?? [],
+      note: opts.note ?? '',
       createdAt: now,
       updatedAt: now,
     };
@@ -183,13 +222,19 @@ export class TadabburStore {
     return reflection;
   }
 
-  update(id: string, change: Partial<Pick<Reflection, 'themes' | 'note'>>) {
-    this.patch((d) => ({
-      ...d,
-      reflections: d.reflections.map((r) =>
-        r.id === id ? { ...r, ...change, updatedAt: Date.now() } : r,
-      ),
-    }));
+  update(id: string, change: Partial<Pick<Reflection, 'title' | 'themes' | 'note'>>) {
+    this.edit(id, (r) => ({ ...r, ...change }));
+  }
+
+  addAyahs(id: string, ayahs: CardAyah[]) {
+    this.edit(id, (r) => ({ ...r, ayahs: withAyahs(r.ayahs, ayahs) }));
+  }
+
+  /** Takes one ayah off a card; returns it so it can be put back. */
+  removeAyah(id: string, surah: number, ayah: number): CardAyah | null {
+    const found = this.get(id)?.ayahs.find((a) => a.surah === surah && a.ayah === ayah) ?? null;
+    if (found) this.edit(id, (r) => ({ ...r, ayahs: r.ayahs.filter((a) => a !== found) }));
+    return found;
   }
 
   toggleTheme(id: string, themeId: string) {
@@ -211,6 +256,7 @@ export class TadabburStore {
       reflections: d.reflections.filter((r) => r.id !== id),
       removed: { ...d.removed, [id]: Date.now() },
     }));
+    if (this.targetId() === id) this.targetId.set(null);
     return { reflection, index };
   }
 
@@ -226,12 +272,6 @@ export class TadabburStore {
     });
   }
 
-  /** A reflection left with no theme and no words is nothing worth keeping. */
-  dropIfEmpty(id: string) {
-    const r = this.get(id);
-    if (r && isEmptyReflection(r)) this.remove(id);
-  }
-
   /** Send any pending change now (the page is being hidden). */
   flush() {
     if (!this.cloudTimer) return;
@@ -241,6 +281,15 @@ export class TadabburStore {
   }
 
   // ── Storage ───────────────────────────────────────────────────────────
+
+  private edit(id: string, fn: (r: Reflection) => Reflection) {
+    this.patch((d) => ({
+      ...d,
+      reflections: d.reflections.map((r) =>
+        r.id === id ? { ...fn(r), updatedAt: Date.now() } : r,
+      ),
+    }));
+  }
 
   private patch(fn: (d: TadabburData) => TadabburData) {
     this.data.update(fn);
@@ -273,7 +322,7 @@ export class TadabburStore {
       if (saved && Array.isArray(saved.themes) && Array.isArray(saved.reflections)) {
         return {
           themes: saved.themes,
-          reflections: saved.reflections,
+          reflections: upgradeReflections(saved.reflections),
           removed: pruneRemoved(saved.removed ?? {}),
         };
       }
@@ -295,31 +344,11 @@ export class TadabburStore {
     }
   }
 
-  /** Never chosen → the first starter theme; an empty value is a deliberate "free reflection". */
-  private loadFocus(): string | null {
+  private pref(): string | null {
     try {
-      const value = localStorage.getItem(FOCUS_KEY);
-      return value === null ? DEFAULT_THEMES[0].id : value || null;
-    } catch {
-      return DEFAULT_THEMES[0].id;
-    }
-  }
-
-  private pref(key: string): string | null {
-    try {
-      const value = localStorage.getItem(key);
-      return value === '' ? null : value;
+      return localStorage.getItem(MODE_KEY);
     } catch {
       return null;
-    }
-  }
-
-  private setPref(key: string, value: string | null) {
-    try {
-      if (value === null) localStorage.removeItem(key);
-      else localStorage.setItem(key, value);
-    } catch {
-      // Preference only.
     }
   }
 }

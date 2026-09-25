@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { ar, AYAHS, counted, dayMonth, SURAHS, THEMES } from '../../core/format';
+import { ar, AYAHS, CARDS, counted, dayMonth, SURAHS } from '../../core/format';
 import { surahName } from '../../core/quran/quran-meta';
 import {
   filterReflections,
@@ -17,23 +17,18 @@ import {
   Reflection,
   reflectionsAsText,
   TadabburTheme,
+  uniqueAyahs,
   THEME_COLORS,
   ThemeColor,
 } from '../../core/tadabbur/tadabbur';
 import { TadabburStore } from '../../core/tadabbur/tadabbur.store';
 import { Icon } from '../../ui/icon';
 import { Sheet } from '../../ui/sheet';
-import { rangeLabel, ReflectionSheet } from './reflection-sheet';
-
-interface Section {
-  surah: number | null;
-  title: string;
-  items: Reflection[];
-}
+import { labelOf, ReflectionSheet } from './reflection-sheet';
 
 /**
- * دفتر التدبر: every ayah the reader marked, by theme. Pick "العذاب" and the warnings of the whole
- * mushaf sit together, in order, with the reader's notes under them and a map of where they fall.
+ * دفتر التدبر: every card the reader made, by theme. Pick "العذاب" and those cards sit together in
+ * mushaf order, with the reader's notes under their ayahs and a map of where the ayahs fall.
  */
 @Component({
   selector: 'app-tadabbur',
@@ -47,7 +42,9 @@ export class Tadabbur {
   private readonly router = inject(Router);
 
   protected readonly ar = ar;
-  protected readonly rangeLabel = rangeLabel;
+  protected readonly labelOf = labelOf;
+  protected readonly surahName = surahName;
+  protected readonly ayahsCount = (n: number) => counted(n, AYAHS);
   protected readonly dayMonth = dayMonth;
   protected readonly colors = THEME_COLORS;
 
@@ -66,19 +63,6 @@ export class Tadabbur {
       surahName,
     }),
   );
-  protected readonly sections = computed<Section[]>(() => {
-    const list = this.list();
-    if (this.sort() === 'recent')
-      return list.length ? [{ surah: null, title: '', items: list }] : [];
-    const sections: Section[] = [];
-    for (const r of list) {
-      const last = sections.at(-1);
-      if (last?.surah === r.surah) last.items.push(r);
-      else sections.push({ surah: r.surah, title: `سورة ${surahName(r.surah)}`, items: [r] });
-    }
-    return sections;
-  });
-
   protected readonly counts = computed(() => {
     const map = new Map<string, number>();
     for (const r of this.store.reflections())
@@ -86,9 +70,9 @@ export class Tadabbur {
     return map;
   });
   protected readonly summary = computed(() => {
-    const n = this.store.reflections().length;
-    if (!n) return 'تتبّع مواضيع القرآن، ودوّن ما يفتحه الله عليك';
-    return `${counted(n, AYAHS)}، ${counted(this.store.themes().length, THEMES)}`;
+    const cards = this.store.reflections();
+    if (!cards.length) return 'تتبّع مواضيع القرآن، ودوّن ما يفتحه الله عليك';
+    return `${counted(cards.length, CARDS)}، ${counted(uniqueAyahs(cards).length, AYAHS)}`;
   });
 
   /** Where the listed ayahs fall across the 30 juz. */
@@ -98,9 +82,9 @@ export class Tadabbur {
     return counts.map((n, i) => ({ juz: i + 1, n, level: n ? 0.25 + (0.75 * n) / max : 0 }));
   });
   protected readonly spreadLabel = computed(() => {
-    const list = this.list();
-    const surahs = new Set(list.map((r) => r.surah)).size;
-    return `${counted(list.length, AYAHS)} في ${counted(surahs, SURAHS)}`;
+    const ayahs = uniqueAyahs(this.list());
+    const surahs = new Set(ayahs.map((a) => a.surah)).size;
+    return `${counted(ayahs.length, AYAHS)} في ${counted(surahs, SURAHS)}`;
   });
   protected readonly spreadColor = computed(
     () => `var(--t-${this.activeTheme()?.color ?? 'green'})`,
@@ -144,13 +128,17 @@ export class Tadabbur {
 
   protected goToMushaf(r: Reflection) {
     this.store.setActive(true);
-    void this.router.navigate(['/quran'], { queryParams: { page: r.page } });
+    void this.router.navigate(['/quran'], { queryParams: { page: r.ayahs[0]?.page ?? 1 } });
   }
 
-  /** "Start": straight into the mushaf in tadabbur mode, looking for the theme on screen if one is picked. */
+  /** "إضافة آيات" on a card: to the mushaf, where its last ayah is, gathering for that card. */
+  protected addAyahs(r: Reflection) {
+    this.store.addTo(r.id);
+    void this.router.navigate(['/quran'], { queryParams: { page: r.ayahs.at(-1)?.page ?? 1 } });
+  }
+
+  /** "Start": straight into the mushaf in tadabbur mode. */
   protected startSession() {
-    const theme = this.activeTheme();
-    if (theme) this.store.setFocus(theme.id);
     this.store.setActive(true);
     void this.router.navigate(['/quran']);
   }
@@ -168,7 +156,7 @@ export class Tadabbur {
 
   protected onRemoved({ reflection, index }: { reflection: Reflection; index: number }) {
     this.showToast({
-      label: `حُذفت ${rangeLabel(reflection)}`,
+      label: `حُذفت «${labelOf(reflection)}»`,
       run: () => this.store.restore(reflection, index),
     });
   }

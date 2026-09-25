@@ -19,6 +19,7 @@
               [class.sel-last]="a.ayah === selectedRange()?.endAyah"
               [class.playing]="isAyahPlaying(a)"
               [class.marked]="!!markOf(a)"
+              [class.collected]="isCollected(a)"
               [class.mark-mode]="markMode()"
               [style.--mark]="markColor(a)"
               (click)="selectAyah(a, $event)"

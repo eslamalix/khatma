@@ -1,0 +1,92 @@
+<app-sheet [open]="open()" [title]="heading()" (closed)="closed.emit()">
+  <div class="body">
+    <p class="summary">{{ summary() }}</p>
+    <div class="picked" aria-label="الآيات المجموعة">
+      @for (a of store.collection(); track a.surah + ':' + a.ayah) {
+        <span class="pick">
+          <span>{{ surahName(a.surah) }} {{ ar(a.ayah) }}</span>
+          <button
+            type="button"
+            (click)="drop(a)"
+            [attr.aria-label]="'إزالة ' + surahName(a.surah) + ' ' + ar(a.ayah)"
+          >
+            <app-icon name="close" [size]="12" [stroke]="2.4" />
+          </button>
+        </span>
+      }
+    </div>
+
+    @if (cards().length) {
+      <div class="segmented" role="group">
+        <button type="button" [attr.aria-pressed]="mode() === 'new'" (click)="mode.set('new')">
+          بطاقة جديدة
+        </button>
+        <button
+          type="button"
+          [attr.aria-pressed]="mode() === 'existing'"
+          (click)="mode.set('existing')"
+        >
+          إلى بطاقة موجودة
+        </button>
+      </div>
+    }
+
+    @if (mode() === 'new') {
+      <form class="new-card" (submit)="$event.preventDefault(); createCard()">
+        <input
+          type="text"
+          name="title"
+          [(ngModel)]="title"
+          maxlength="60"
+          autocomplete="off"
+          placeholder="عنوان (اختياري)، مثل: قسوة القلوب"
+          aria-label="عنوان البطاقة"
+        />
+        <span class="label">المواضيع</span>
+        <div class="themes">
+          @for (t of store.themes(); track t.id) {
+            <button
+              type="button"
+              class="theme"
+              [class.on]="themes().includes(t.id)"
+              [style.--c]="'var(--t-' + t.color + ')'"
+              [attr.aria-pressed]="themes().includes(t.id)"
+              (click)="toggleTheme(t.id)"
+            >
+              @if (themes().includes(t.id)) {
+                <app-icon name="check" [size]="13" [stroke]="2.6" />
+              } @else {
+                <span class="dot"></span>
+              }
+              <span>{{ t.name }}</span>
+            </button>
+          }
+        </div>
+        <button type="submit" class="primary">إنشاء البطاقة</button>
+      </form>
+    } @else {
+      <ul class="cards">
+        @for (c of cards(); track c.id) {
+          <li>
+            <button type="button" class="card-choice" (click)="addToCard(c)">
+              <span class="dots">
+                @for (id of c.themes; track id) {
+                  @for (t of store.themes(); track t.id) {
+                    @if (t.id === id) {
+                      <span class="dot" [style.--c]="'var(--t-' + t.color + ')'"></span>
+                    }
+                  }
+                }
+              </span>
+              <span class="choice-text">
+                <strong>{{ labelOf(c) }}</strong>
+                <small>{{ countLabel(c.ayahs.length) }}</small>
+              </span>
+              <app-icon name="plus" [size]="18" [stroke]="2.2" />
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+</app-sheet>

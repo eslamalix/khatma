@@ -50,6 +50,7 @@
           [playingAyah]="audio.current()"
           [marks]="tadabbur.marks()"
           [markMode]="tadabbur.active()"
+          [collected]="tadabbur.collectedKeys()"
           (ayahClicked)="onAyahClicked($event)" />
       </div>
     }
@@ -89,31 +90,30 @@
 
 <!-- Tadabbur mode: the theme being looked for, within thumb's reach. A tap on an ayah marks it with it. -->
 @if (tadabbur.active()) {
-  <div class="tadabbur-strip" role="toolbar" aria-label="وضع التدبر">
-    <a class="strip-btn" routerLink="/tadabbur" aria-label="دفتر التدبر">
-      <app-icon name="journal" [size]="19" [stroke]="1.9" />
-    </a>
-    <div class="strip-chips" role="radiogroup" aria-label="أبحث عن">
-      @for (t of tadabbur.themes(); track t.id) {
-        <button type="button" class="focus-chip" [class.on]="tadabbur.focusThemeId() === t.id"
-          [style.--c]="'var(--t-' + t.color + ')'" role="radio" [attr.aria-checked]="tadabbur.focusThemeId() === t.id"
-          (click)="setFocus(t.id)">
-          <span class="dot"></span>
-          <span>{{ t.name }}</span>
-        </button>
-      }
-      <button type="button" class="focus-chip free" [class.on]="tadabbur.focusThemeId() === null" role="radio"
-        [attr.aria-checked]="tadabbur.focusThemeId() === null" (click)="setFocus(null)">
-        <app-icon name="pencil" [size]="13" [stroke]="2" />
-        <span>تأمّل حر</span>
+  <div class="tadabbur-strip" [class.gathering]="tadabbur.collection().length || tadabbur.targetId()" role="toolbar" aria-label="وضع التدبر">
+    @if (tadabbur.collection().length || tadabbur.targetId()) {
+      <button type="button" class="strip-btn" (click)="cancelGathering()" aria-label="إلغاء الجمع">
+        <app-icon name="close" [size]="16" [stroke]="2.2" />
       </button>
-      <button type="button" class="focus-chip add" (click)="openNewTheme()" aria-label="موضوع جديد">
-        <app-icon name="plus" [size]="15" [stroke]="2.3" />
+      <span class="strip-text">
+        <strong>{{ tadabbur.collection().length ? collectedCount() : 'المس الآيات' }}</strong>
+        @if (tadabbur.targetId()) {
+          <small>إلى «{{ targetLabel() }}»</small>
+        }
+      </span>
+      <button type="button" class="strip-save" (click)="saveCollection()" [disabled]="!tadabbur.collection().length">
+        <app-icon name="lamp" [size]="17" [stroke]="2" />
+        <span>{{ tadabbur.targetId() ? 'أضف للبطاقة' : 'حفظ في بطاقة' }}</span>
       </button>
-    </div>
-    <button type="button" class="strip-btn" (click)="toggleTadabbur()" aria-label="إنهاء وضع التدبر">
-      <app-icon name="close" [size]="16" [stroke]="2.2" />
-    </button>
+    } @else {
+      <a class="strip-btn" routerLink="/tadabbur" aria-label="دفتر التدبر">
+        <app-icon name="journal" [size]="19" [stroke]="1.9" />
+      </a>
+      <span class="strip-text hint-text">المس الآيات لتجمعها في بطاقة</span>
+      <button type="button" class="strip-btn" (click)="toggleTadabbur()" aria-label="إنهاء وضع التدبر">
+        <app-icon name="close" [size]="16" [stroke]="2.2" />
+      </button>
+    }
   </div>
 }
 
@@ -197,23 +197,10 @@
   </div>
 }
 
-<app-reflection-sheet [open]="reflectionOpen()" [reflectionId]="reflectionId()" [draft]="reflectionDraft()"
-  (closed)="reflectionOpen.set(false)" (removed)="onReflectionRemoved($event)" />
+<app-reflection-sheet [open]="reflectionOpen()" [reflectionId]="reflectionId()"
+  (closed)="reflectionOpen.set(false)" (removed)="onReflectionRemoved($event)" (addAyahs)="onAddAyahs($event)" />
 
-<app-sheet [open]="newThemeOpen()" title="موضوع جديد" (closed)="newThemeOpen.set(false)">
-  <form class="new-theme-form" (submit)="$event.preventDefault(); confirmNewTheme()">
-    <p class="hint">ما الذي تريد أن تتتبّعه في القرآن؟</p>
-    <input type="text" name="themeName" class="new-group-field" [(ngModel)]="newThemeName" maxlength="30" autocomplete="off"
-      placeholder="مثل: الجنة، الصبر، صفات المؤمنين" aria-label="اسم الموضوع" />
-    <div class="palette" role="radiogroup" aria-label="لون الموضوع">
-      @for (c of themeColors; track c) {
-        <button type="button" class="swatch" [class.on]="newThemeColor() === c" [style.--c]="'var(--t-' + c + ')'"
-          role="radio" [attr.aria-checked]="newThemeColor() === c" [attr.aria-label]="c" (click)="newThemeColor.set(c)"></button>
-      }
-    </div>
-    <button type="submit" class="save-confirm-btn" [disabled]="!newThemeName.trim()">ابدأ البحث عنه</button>
-  </form>
-</app-sheet>
+<app-collect-sheet [open]="collectOpen()" (closed)="collectOpen.set(false)" (saved)="onCollected($event)" />
 
 <!-- Jump Sheet -->
 <app-sheet [open]="jumpOpen()" title="انتقل إلى" (closed)="jumpOpen.set(false)">

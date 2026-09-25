@@ -10,10 +10,8 @@
       ><app-icon name="lamp" [size]="22" [stroke]="1.9"
     /></span>
     <span class="start-text">
-      <strong>{{
-        activeTheme() ? 'ابحث عن آيات ' + activeTheme()!.name : 'ابدأ جلسة تدبّر'
-      }}</strong>
-      <small>المس أي آية في المصحف لتضيفها إليه</small>
+      <strong>ابدأ جلسة تدبّر</strong>
+      <small>اجمع آيات من المصحف، متتالية أو متفرقة، في بطاقة</small>
     </span>
     <app-icon name="chevronLeft" [size]="20" [stroke]="2" />
   </button>
@@ -108,80 +106,80 @@
       </button>
     </div>
 
-    @for (section of sections(); track section.surah ?? 'all') {
-      <section class="section">
-        @if (section.title) {
-          <h2 class="section-title">
-            {{ section.title }} <span>{{ ar(section.items.length) }}</span>
-          </h2>
-        }
-        <div class="cards">
-          @for (r of section.items; track r.id) {
-            <article
-              class="card-item"
-              [style.--c]="colorOf(r)"
-              (click)="openCard(r)"
-              (keydown.enter)="openCard(r)"
-              tabindex="0"
-              role="button"
-              [attr.aria-label]="rangeLabel(r)"
-            >
-              <header class="item-head">
-                <span class="ref">{{ rangeLabel(r) }}</span>
-                <span class="tags">
-                  @for (t of themesOf(r); track t.id) {
-                    <span class="tag" [style.--c]="'var(--t-' + t.color + ')'">{{ t.name }}</span>
-                  }
-                </span>
-              </header>
-              <p class="ayah">{{ r.text }}</p>
-              @if (r.note.trim()) {
-                <p class="note">{{ r.note }}</p>
+    <div class="cards">
+      @for (r of list(); track r.id) {
+        <article
+          class="card-item"
+          [style.--c]="colorOf(r)"
+          (click)="openCard(r)"
+          (keydown.enter)="openCard(r)"
+          tabindex="0"
+          role="button"
+          [attr.aria-label]="labelOf(r)"
+        >
+          <header class="item-head">
+            <span class="ref">{{ labelOf(r) }}</span>
+            <span class="tags">
+              @for (t of themesOf(r); track t.id) {
+                <span class="tag" [style.--c]="'var(--t-' + t.color + ')'">{{ t.name }}</span>
               }
-              <footer class="item-foot">
-                <span>{{ dayMonth(r.createdAt) }}</span>
-                <button
-                  type="button"
-                  class="to-mushaf"
-                  (click)="$event.stopPropagation(); goToMushaf(r)"
-                >
-                  <span>في المصحف، ص {{ ar(r.page) }}</span>
-                  <app-icon name="chevronLeft" [size]="14" [stroke]="2.2" />
-                </button>
-              </footer>
-            </article>
+            </span>
+          </header>
+          @for (a of r.ayahs.slice(0, 3); track a.surah + ':' + a.ayah) {
+            <p class="ayah">
+              {{ a.text }}&nbsp;<span class="ayah-ref"
+                >{{ surahName(a.surah) }} {{ ar(a.ayah) }}</span
+              >
+            </p>
           }
-        </div>
-      </section>
-    } @empty {
-      <p class="nothing">
-        @if (query()) {
-          لا نتائج لـ«{{ query() }}»
-        } @else {
-          لم تضف آيات إلى «{{ activeTheme()?.name }}» بعد.
-        }
-      </p>
-    }
+          @if (r.ayahs.length > 3) {
+            <span class="more">و{{ ayahsCount(r.ayahs.length - 3) }} أخرى</span>
+          }
+          @if (r.note.trim()) {
+            <p class="note">{{ r.note }}</p>
+          }
+          <footer class="item-foot">
+            <span>{{ ayahsCount(r.ayahs.length) }}، {{ dayMonth(r.createdAt) }}</span>
+            <button
+              type="button"
+              class="to-mushaf"
+              (click)="$event.stopPropagation(); goToMushaf(r)"
+            >
+              <span>في المصحف</span>
+              <app-icon name="chevronLeft" [size]="14" [stroke]="2.2" />
+            </button>
+          </footer>
+        </article>
+      } @empty {
+        <p class="nothing">
+          @if (query()) {
+            لا نتائج لـ«{{ query() }}»
+          } @else {
+            لا بطاقات في «{{ activeTheme()?.name }}» بعد.
+          }
+        </p>
+      }
+    </div>
   } @else {
     <!-- First visit: how it works, in three steps. -->
     <section class="intro">
       <ol>
         <li>
-          <span class="step">١</span
-          ><span>في المصحف اضغط زر <b>المصباح</b> أسفل الشاشة لتبدأ وضع التدبّر.</span>
+          <span class="step">١</span>
+          <span>في المصحف اضغط زر <b>المصباح</b> أسفل الشاشة لتبدأ وضع التدبّر.</span>
         </li>
         <li>
-          <span class="step">٢</span
-          ><span
-            >اختر ما تبحث عنه، مثل <b class="c-green">الرحمة</b> أو <b class="c-red">العذاب</b>، ثم
-            اقرأ.</span
+          <span class="step">٢</span>
+          <span
+            >المس الآيات التي تريدها، <b>متتالية أو متفرقة</b> ولو في صفحات مختلفة. المسها مرة أخرى
+            لتُخرجها.</span
           >
         </li>
         <li>
-          <span class="step">٣</span
-          ><span
-            >كلما مرّت بك آية منه <b>المسها</b> فتتلوّن وتُحفظ هنا. المسها مرة أخرى لتكتب
-            تأملك.</span
+          <span class="step">٣</span>
+          <span
+            >اضغط <b>حفظ في بطاقة</b>: بطاقة جديدة بموضوعها، مثل <b class="c-green">الرحمة</b> أو
+            <b class="c-red">العذاب</b>، أو بطاقة عندك. ثم اكتب تأملك.</span
           >
         </li>
       </ol>
@@ -205,6 +203,7 @@
   (closed)="cardOpen.set(false)"
   (removed)="onRemoved($event)"
   (openInMushaf)="goToMushaf($event)"
+  (addAyahs)="addAyahs($event)"
 />
 
 <app-sheet

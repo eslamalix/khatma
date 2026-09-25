@@ -1,27 +1,35 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  ayahsLabel,
   buildMarks,
+  CardAyah,
   DEFAULT_THEMES,
   filterReflections,
   juzSpread,
   mergeTadabbur,
   normalizeArabic,
   Reflection,
-  reflectionAt,
   reflectionsAsText,
   TadabburData,
+  upgradeReflection,
+  withAyahs,
 } from './tadabbur';
 import { TadabburStore } from './tadabbur.store';
 
 const themes = DEFAULT_THEMES.map((t) => ({ ...t }));
+const name = (n: number) => ({ 1: 'الفاتحة', 2: 'البقرة', 7: 'الأعراف' })[n] ?? `س${n}`;
 
-function reflection(over: Partial<Reflection> & Pick<Reflection, 'id'>): Reflection {
+const ay = (surah: number, ayah: number, text = 'نص', page = 2): CardAyah => ({
+  surah,
+  ayah,
+  page,
+  text,
+});
+
+function card(over: Partial<Reflection> & Pick<Reflection, 'id'>): Reflection {
   return {
-    surah: 2,
-    from: 5,
-    to: 5,
-    page: 2,
-    text: 'نص',
+    title: '',
+    ayahs: [ay(2, 5)],
     themes: [],
     note: '',
     createdAt: 1,
@@ -37,33 +45,54 @@ const data = (over: Partial<TadabburData> = {}): TadabburData => ({
   ...over,
 });
 
-describe('tadabbur marks', () => {
-  it('colours each ayah of a reflection by its first known theme', () => {
+describe('tadabbur cards', () => {
+  it('keeps ayahs in mushaf order and each one once', () => {
+    const list = withAyahs([ay(2, 7)], [ay(2, 5), ay(1, 2), ay(2, 7)]);
+    expect(list.map((a) => `${a.surah}:${a.ayah}`)).toEqual(['1:2', '2:5', '2:7']);
+  });
+
+  it('names scattered ayahs by surah and joins runs', () => {
+    const label = ayahsLabel([ay(2, 7), ay(2, 5), ay(2, 6), ay(2, 12), ay(7, 56)], name, String);
+    expect(label).toBe('البقرة 5–7، 12؛ الأعراف 56');
+    expect(ayahsLabel([ay(1, 1), ay(2, 1), ay(3, 1), ay(4, 1)], name, String)).toBe(
+      'الفاتحة 1؛ البقرة 1؛ س3 1 وغيرها',
+    );
+  });
+
+  it('colours each ayah by the latest card that has a theme', () => {
     const marks = buildMarks(
-      [reflection({ id: 'a', from: 5, to: 7, themes: ['gone', 'warning', 'mercy'] })],
+      [
+        card({ id: 'old', ayahs: [ay(2, 5), ay(2, 9)], themes: ['warning'], updatedAt: 1 }),
+        card({ id: 'new', ayahs: [ay(2, 5)], themes: ['gone', 'mercy'], note: 'x', updatedAt: 5 }),
+        card({ id: 'plain', ayahs: [ay(2, 9)], updatedAt: 9 }),
+      ],
       themes,
     );
-    expect([...marks.keys()]).toEqual(['2:5', '2:6', '2:7']);
-    expect(marks.get('2:6')).toEqual({ reflectionId: 'a', color: 'red', hasNote: false });
+    expect(marks.get('2:5')).toEqual({ reflectionId: 'new', color: 'green', hasNote: true });
+    expect(marks.get('2:9')?.reflectionId).toBe('old');
   });
 
-  it('lets the narrowest reflection own an ayah where two overlap', () => {
-    const list = [
-      reflection({ id: 'wide', from: 1, to: 10, themes: ['stories'] }),
-      reflection({ id: 'one', from: 4, to: 4, themes: ['dua'], note: 'x' }),
-    ];
-    const marks = buildMarks(list, themes);
-    expect(marks.get('2:4')).toEqual({ reflectionId: 'one', color: 'blue', hasNote: true });
-    expect(marks.get('2:5')?.reflectionId).toBe('wide');
-    expect(reflectionAt(list, 2, 4)?.id).toBe('one');
-    expect(reflectionAt(list, 2, 11)).toBeNull();
-  });
-
-  it('keeps a note-only reflection visible without a colour', () => {
-    expect(buildMarks([reflection({ id: 'n', note: 'تأمل' })], themes).get('2:5')).toEqual({
-      reflectionId: 'n',
-      color: null,
-      hasNote: true,
+  it('upgrades an old single-range entry into a card', () => {
+    const old = {
+      id: 'a',
+      surah: 2,
+      from: 5,
+      to: 6,
+      page: 2,
+      text: 'أ ۝ ب',
+      themes: ['mercy'],
+      note: 'n',
+      createdAt: 1,
+      updatedAt: 2,
+    };
+    expect(upgradeReflection(old)).toEqual({
+      id: 'a',
+      title: '',
+      ayahs: [ay(2, 5, 'أ'), ay(2, 6, 'ب')],
+      themes: ['mercy'],
+      note: 'n',
+      createdAt: 1,
+      updatedAt: 2,
     });
   });
 });
@@ -76,25 +105,21 @@ describe('tadabbur journal', () => {
 
   it('filters by theme and search text, in mushaf order or newest first', () => {
     const list = [
-      reflection({
+      card({
         id: 'b',
-        surah: 7,
-        from: 56,
+        ayahs: [ay(7, 56, 'إِنَّ رَحۡمَتَ ٱللَّهِ قَرِيبٞ')],
         themes: ['mercy'],
-        text: 'إِنَّ رَحۡمَتَ ٱللَّهِ قَرِيبٞ',
         createdAt: 3,
       }),
-      reflection({
+      card({
         id: 'a',
-        surah: 2,
-        from: 5,
+        ayahs: [ay(2, 5), ay(7, 1)],
         themes: ['mercy', 'dua'],
         note: 'دعاء جميل',
         createdAt: 1,
       }),
-      reflection({ id: 'c', surah: 2, from: 7, themes: ['warning'], createdAt: 2 }),
+      card({ id: 'c', ayahs: [ay(2, 7)], title: 'قلوب مختومة', themes: ['warning'], createdAt: 2 }),
     ];
-    const name = (n: number) => (n === 2 ? 'البقرة' : 'الأعراف');
     const ids = (theme: string | null, query: string, sort: 'mushaf' | 'recent') =>
       filterReflections(list, { theme, query, sort, surahName: name }).map((r) => r.id);
     expect(ids(null, '', 'mushaf')).toEqual(['a', 'c', 'b']);
@@ -102,47 +127,39 @@ describe('tadabbur journal', () => {
     expect(ids('mercy', '', 'mushaf')).toEqual(['a', 'b']);
     expect(ids(null, 'رحمت', 'mushaf')).toEqual(['b']);
     expect(ids(null, 'دعاء', 'mushaf')).toEqual(['a']);
-    expect(ids(null, 'الاعراف', 'mushaf')).toEqual(['b']);
+    expect(ids(null, 'الاعراف', 'mushaf')).toEqual(['a', 'b']);
+    expect(ids(null, 'مختومه', 'mushaf')).toEqual(['c']);
   });
 
-  it('spreads reflections over the thirty juz', () => {
+  it('spreads distinct ayahs over the thirty juz', () => {
     const spread = juzSpread([
-      reflection({ id: 'a', page: 1 }),
-      reflection({ id: 'b', page: 22 }),
-      reflection({ id: 'c', page: 604 }),
+      card({ id: 'a', ayahs: [ay(1, 1, '', 1), ay(2, 200, '', 22)] }),
+      card({ id: 'b', ayahs: [ay(1, 1, '', 1), ay(114, 1, '', 604)] }),
     ]);
-    expect(spread[0]).toBe(1);
-    expect(spread[1]).toBe(1);
-    expect(spread[29]).toBe(1);
+    expect([spread[0], spread[1], spread[29]]).toEqual([1, 1, 1]);
     expect(spread.reduce((a, b) => a + b)).toBe(3);
   });
 
-  it('shares ayahs with their reference and note', () => {
+  it('shares cards with title, references and note', () => {
     const text = reflectionsAsText(
       [
-        reflection({ id: 'a', from: 1, to: 2, text: 'أ ۝ ب', note: ' فائدة ' }),
-        reflection({ id: 'b', from: 9, to: 9, text: 'ج' }),
+        card({ id: 'a', title: ' خوف ', ayahs: [ay(2, 6, 'أ'), ay(2, 9, 'ب')], note: ' فائدة ' }),
+        card({ id: 'b', ayahs: [ay(2, 9, 'ج')] }),
       ],
-      () => 'البقرة',
+      name,
       String,
     );
-    expect(text).toBe('﴿أ ب﴾ [البقرة: 1-2]\nفائدة\n\n﴿ج﴾ [البقرة: 9]');
+    expect(text).toBe('«خوف»\n﴿أ﴾ [البقرة: 6]\n﴿ب﴾ [البقرة: 9]\nفائدة\n\n﴿ج﴾ [البقرة: 9]');
   });
 });
 
 describe('tadabbur merge', () => {
-  it('keeps additions from both devices and the newer edit of the same item', () => {
+  it('keeps additions from both devices and the newer edit of the same card', () => {
     const local = data({
-      reflections: [
-        reflection({ id: 'a', note: 'old', updatedAt: 1 }),
-        reflection({ id: 'mine', updatedAt: 1 }),
-      ],
+      reflections: [card({ id: 'a', note: 'old', updatedAt: 1 }), card({ id: 'mine' })],
     });
     const cloud = data({
-      reflections: [
-        reflection({ id: 'a', note: 'new', updatedAt: 5 }),
-        reflection({ id: 'theirs', updatedAt: 1 }),
-      ],
+      reflections: [card({ id: 'a', note: 'new', updatedAt: 5 }), card({ id: 'theirs' })],
     });
     const merged = mergeTadabbur(local, cloud);
     expect(merged.data.reflections.map((r) => r.id).sort()).toEqual(['a', 'mine', 'theirs']);
@@ -153,22 +170,21 @@ describe('tadabbur merge', () => {
 
   it('respects deletions from either side through tombstones', () => {
     const local = data({
-      reflections: [reflection({ id: 'deletedThere' })],
+      reflections: [card({ id: 'deletedThere' })],
       removed: { deletedHere: 9 },
     });
     const cloud = data({
-      reflections: [reflection({ id: 'deletedHere' })],
+      reflections: [card({ id: 'deletedHere' })],
       removed: { deletedThere: 9 },
     });
     const merged = mergeTadabbur(local, cloud);
     expect(merged.data.reflections).toEqual([]);
     expect(merged.data.removed).toEqual({ deletedHere: 9, deletedThere: 9 });
     expect(merged.changed).toBe(true);
-    expect(merged.cleanup).toBe(true);
   });
 
   it('reports nothing to do when both copies agree', () => {
-    const same = data({ reflections: [reflection({ id: 'a' })] });
+    const same = data({ reflections: [card({ id: 'a' })] });
     const merged = mergeTadabbur(same, structuredClone(same));
     expect(merged.changed).toBe(false);
     expect(merged.cleanup).toBe(false);
@@ -177,55 +193,55 @@ describe('tadabbur merge', () => {
 
 describe('TadabburStore', () => {
   let store: TadabburStore;
-  const draft = { surah: 2, from: 255, to: 255, page: 42, text: 'آية الكرسي' };
 
   beforeEach(() => {
     localStorage.clear();
     store = new TadabburStore();
   });
 
-  it('starts with the starter themes, focused on the first, and keeps what is marked', () => {
-    expect(store.themes().map((t) => t.id)).toEqual(DEFAULT_THEMES.map((t) => t.id));
-    expect(store.focusTheme()?.id).toBe('mercy');
-    const r = store.create(draft, ['names']);
-    store.update(r.id, { note: 'أعظم آية' });
-    const reloaded = new TadabburStore();
-    expect(reloaded.at(2, 255)?.note).toBe('أعظم آية');
-    expect(reloaded.marks().get('2:255')?.color).toBe('gold');
+  it('gathers ayahs across pages, a second tap takes one out, in mushaf order', () => {
+    expect(store.toggleCollected(ay(2, 9))).toBe(true);
+    store.toggleCollected(ay(2, 3));
+    store.collect([ay(2, 5), ay(2, 6)]);
+    expect(store.toggleCollected(ay(2, 5))).toBe(false);
+    expect(store.collection().map((a) => a.ayah)).toEqual([3, 6, 9]);
+    expect(store.isCollected(2, 6)).toBe(true);
+    store.setActive(false);
+    expect(store.collection()).toEqual([]);
   });
 
-  it('remembers a free-reflection focus and the mode across reloads', () => {
-    store.setFocus(null);
-    store.setActive(true);
+  it('keeps a card with scattered ayahs, and ayahs can be added and taken off later', () => {
+    const r = store.create([ay(2, 9), ay(2, 3)], { title: 'الغيب', themes: ['warning'] });
+    store.addAyahs(r.id, [ay(2, 5), ay(2, 3)]);
+    expect(store.get(r.id)?.ayahs.map((a) => a.ayah)).toEqual([3, 5, 9]);
+    const gone = store.removeAyah(r.id, 2, 5)!;
+    expect(store.get(r.id)?.ayahs.map((a) => a.ayah)).toEqual([3, 9]);
+    store.addAyahs(r.id, [gone]);
+    store.update(r.id, { note: 'تأمل' });
+
     const reloaded = new TadabburStore();
-    expect(reloaded.focusThemeId()).toBeNull();
-    expect(reloaded.active()).toBe(true);
+    expect(reloaded.get(r.id)?.ayahs.map((a) => a.ayah)).toEqual([3, 5, 9]);
+    expect(reloaded.marks().get('2:9')?.color).toBe('red');
+    expect(reloaded.cardsWith(2, 3).map((c) => c.id)).toEqual([r.id]);
   });
 
-  it('toggles themes, drops empty reflections and restores deletions', () => {
-    const r = store.create(draft, ['mercy']);
-    store.toggleTheme(r.id, 'dua');
-    expect(store.get(r.id)?.themes).toEqual(['mercy', 'dua']);
-    store.toggleTheme(r.id, 'mercy');
-    store.toggleTheme(r.id, 'dua');
-    store.dropIfEmpty(r.id);
-    expect(store.get(r.id)).toBeNull();
-
-    const kept = store.create(draft, ['warning']);
-    const removed = store.remove(kept.id)!;
+  it('starts adding to a chosen card, and forgets it once the card is gone', () => {
+    const r = store.create([ay(2, 1)]);
+    store.addTo(r.id);
+    expect(store.active()).toBe(true);
+    expect(store.target()?.id).toBe(r.id);
+    const removed = store.remove(r.id)!;
+    expect(store.targetId()).toBeNull();
     store.restore(removed.reflection, removed.index);
-    expect(store.get(kept.id)?.themes).toEqual(['warning']);
+    expect(store.get(r.id)).not.toBeNull();
   });
 
-  it('deletes a theme without losing marks, so undo brings them back', () => {
-    const r = store.create(draft, ['warning']);
-    store.setFocus('warning');
+  it('deletes a theme without losing colours, so undo brings them back', () => {
+    store.create([ay(2, 255)], { themes: ['warning'] });
     const gone = store.deleteTheme('warning')!;
     expect(store.marks().get('2:255')?.color).toBeNull();
-    expect(store.focusThemeId()).toBe('mercy');
     store.restoreTheme(gone.theme, gone.index);
     expect(store.marks().get('2:255')?.color).toBe('red');
-    expect(store.get(r.id)?.themes).toEqual(['warning']);
   });
 
   it('gives a new theme a colour not used yet', () => {
