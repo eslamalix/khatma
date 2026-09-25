@@ -9,6 +9,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/groups/groups').then((m) => m.Groups),
   },
   {
+    path: 'tadabbur',
+    title: 'التدبر — ختمة',
+    loadComponent: () => import('./features/tadabbur/tadabbur').then((m) => m.Tadabbur),
+  },
+  {
     path: 'awrad',
     title: 'الأوراد — ختمة',
     loadComponent: () => import('./features/awrad/awrad').then((m) => m.Awrad),

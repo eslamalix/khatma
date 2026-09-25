@@ -17,6 +17,7 @@ Quran KPI — a personal Angular 21 single-page web app for tracking Quran readi
   - `reading/` — reading store (IndexedDB) + KPI maths
   - `timing/` — visibility, idle-credit, session timing engine
   - `awrad/` — awrad store + smart tasbeeh logic
+  - `tadabbur/` — reflection themes, marked ayahs + notes, journal filters, sync merge
   - `calendar/` — calendar aggregation helpers
   - `db/` — IndexedDB schema (via `idb`)
   - `sync/` — Firebase cloud sync (lazy-loaded)
@@ -26,6 +27,7 @@ Quran KPI — a personal Angular 21 single-page web app for tracking Quran readi
   - `home/` — khatma counter, remaining countdown, continue button, surah insight
   - `quran/` — 604-page horizontal pager with virtualisation, KPI bar, jump sheet
   - `awrad/` — smart tasbeeh (33/33/34), morning/evening adhkar, groups
+  - `tadabbur/` — reflection journal (`/tadabbur`) + the reflection card used by the reader
   - `stats/` — KPI tiles, khatma comparison, virtualised 604-row table
   - `calendar/` — month heatmap, week bars, 24h dial
   - `groups/` — saved ayah/group management

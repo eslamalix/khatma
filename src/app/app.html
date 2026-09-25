@@ -36,6 +36,10 @@
 
   <app-sheet [open]="moreOpen()" (closed)="moreOpen.set(false)" title="المزيد">
     <div class="more-menu">
+      <a routerLink="/tadabbur" class="menu-item" (click)="moreOpen.set(false)">
+        <app-icon name="lamp" [size]="22" [stroke]="1.7" />
+        <span>التدبر</span>
+      </a>
       <a routerLink="/calendar" class="menu-item" (click)="moreOpen.set(false)">
         <app-icon name="calendar" [size]="22" [stroke]="1.7" />
         <span>التقويم</span>

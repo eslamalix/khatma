@@ -14,6 +14,7 @@ const HOME: NavItem = { path: '/', label: 'الرئيسية', icon: 'home' };
 const QURAN: NavItem = { path: '/quran', label: 'القرآن', icon: 'quran' };
 const GROUPS: NavItem = { path: '/groups', label: 'مجموعاتي', icon: 'collection' };
 const AWRAD: NavItem = { path: '/awrad', label: 'الأوراد', icon: 'awrad' };
+const TADABBUR: NavItem = { path: '/tadabbur', label: 'التدبر', icon: 'lamp' };
 const STATS: NavItem = { path: '/stats', label: 'الإحصائيات', icon: 'stats' };
 const CALENDAR: NavItem = { path: '/calendar', label: 'التقويم', icon: 'calendar' };
 import { Account } from './features/account/account';
@@ -44,7 +45,7 @@ export class App {
 
   /** Phone tab bar: 5 thumb-friendly ergonomic items (RTL: rightmost is HOME). */
   protected readonly tabs = [HOME, QURAN, AWRAD, GROUPS];
-  protected readonly sidebar = [HOME, QURAN, AWRAD, GROUPS, CALENDAR, STATS];
+  protected readonly sidebar = [HOME, QURAN, TADABBUR, AWRAD, GROUPS, CALENDAR, STATS];
 
   protected readonly exactPath: IsActiveMatchOptions = { paths: 'exact', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' };
   protected readonly subtree: IsActiveMatchOptions = { paths: 'subset', queryParams: 'ignored', matrixParams: 'ignored', fragment: 'ignored' };

@@ -1,5 +1,30 @@
+/* Tadabbur theme colours (a theme's `color` key → `--t-<key>`), with the text colour that sits on them. */
+@mixin tadabbur-light {
+  --t-green: #2f8a5b;
+  --t-red: #c2453b;
+  --t-blue: #3470c4;
+  --t-gold: #a67a1f;
+  --t-purple: #8052b8;
+  --t-teal: #1f8585;
+  --t-rose: #bf4a82;
+  --t-slate: #667085;
+  --on-t: #ffffff;
+}
+@mixin tadabbur-dark {
+  --t-green: #6cc596;
+  --t-red: #ef7d72;
+  --t-blue: #7aa8ee;
+  --t-gold: #e0b457;
+  --t-purple: #b393e8;
+  --t-teal: #5cc6c4;
+  --t-rose: #ee8dbb;
+  --t-slate: #a3acbb;
+  --on-t: #14130f;
+}
+
 /* Design tokens — mirror design/build.mjs. */
 :root {
+  @include tadabbur-light;
   color-scheme: light dark;
   --bg: #f7f5f0;
   --paper: #fbf9f4;
@@ -33,6 +58,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
+    @include tadabbur-dark;
     --bg: #141413;
     --paper: #171715;
     --sheet: #1c1c1a;
@@ -61,6 +87,7 @@
  * highlights and the reader's own bars and sheets) so a light page never meets dark-mode text.
  */
 @mixin mushaf-light {
+  @include tadabbur-light;
   color-scheme: light;
   --bg: #f4efe4;
   --desk: #efe9dd;
@@ -110,6 +137,7 @@
 
 /* Warm dark: soft off-white text on a deep brown-black, gentle on the eyes at night. */
 @mixin mushaf-dark {
+  @include tadabbur-dark;
   color-scheme: dark;
   --bg: #121110;
   --desk: #0e0d0b;

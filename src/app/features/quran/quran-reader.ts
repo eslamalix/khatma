@@ -13,6 +13,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ReadingStore } from '../../core/reading/reading.store';
 import { ReadingTimer } from '../../core/timing/reading-timer';
 import { QuranPages } from '../../core/quran/quran-pages.service';
@@ -27,7 +28,7 @@ import {
   TOTAL_PAGES,
   AyahRef,
 } from '../../core/quran/quran-meta';
-import { ar, minSec, percent, shortDuration } from '../../core/format';
+import { ar, AYAHS, counted, minSec, percent, shortDuration } from '../../core/format';
 import { Icon } from '../../ui/icon';
 import { Sheet } from '../../ui/sheet';
 import { MushafPage } from './mushaf-page';
@@ -38,6 +39,9 @@ import { BackgroundTheme, ReadingMode } from '../../core/reading/reading';
 import { QuranAudioService } from '../../core/quran/quran-audio.service';
 import { TafsirService } from '../../core/quran/tafsir.service';
 import { QuranPlayer } from './quran-player';
+import { TadabburStore } from '../../core/tadabbur/tadabbur.store';
+import { Reflection, ReflectionDraft, THEME_COLORS, ThemeColor } from '../../core/tadabbur/tadabbur';
+import { ReflectionSheet } from '../tadabbur/reflection-sheet';
 
 const WINDOW = 2;
 const SETTLE_MS = 140;
@@ -54,13 +58,14 @@ export interface AyahRangeSelection {
 
 @Component({
   selector: 'app-quran-reader',
-  imports: [MushafPage, Icon, Sheet, FormsModule, QuranPlayer],
+  imports: [MushafPage, Icon, Sheet, FormsModule, QuranPlayer, ReflectionSheet, RouterLink],
   templateUrl: './quran-reader.html',
   styleUrl: './quran-reader.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[class.has-selection]': 'selectedRange() !== null',
     '[class.has-player]': 'audio.isActive()',
+    '[class.tadabbur-on]': 'tadabbur.active()',
     '[attr.data-theme]': 'store.state().backgroundTheme',
     '(document:keydown)': 'onKey($event)',
   },
@@ -75,6 +80,9 @@ export class QuranReader {
   private readonly pager = viewChild.required<ElementRef<HTMLElement>>('pager');
   private readonly player = viewChild.required(QuranPlayer);
   private readonly injector = inject(Injector);
+  protected readonly tadabbur = inject(TadabburStore);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly ar = ar;
   protected readonly surahName = surahName;
@@ -113,6 +121,7 @@ export class QuranReader {
   // Multiple Ayah Selection & Groups
   readonly selectedRange = signal<AyahRangeSelection | null>(null);
   readonly lastPageAyahs = signal<QuranAyah[]>([]);
+  private lastTappedPage = 1;
 
   readonly selectionLabel = computed(() => {
     const r = this.selectedRange();
@@ -150,6 +159,20 @@ export class QuranReader {
   readonly tafsirLoading = signal<boolean>(false);
   readonly tafsirItems = signal<{ ayah: number; text: string }[]>([]);
   readonly tafsirRef = signal<string>('');
+
+  // Tadabbur: the reflection card, an undo for the last mark, and a sheet to add a theme from the strip.
+  protected readonly reflectionOpen = signal(false);
+  protected readonly reflectionId = signal<string | null>(null);
+  protected readonly reflectionDraft = signal<ReflectionDraft | null>(null);
+  protected readonly undoToast = signal<{ text: string; run: () => void } | null>(null);
+  protected readonly newThemeOpen = signal(false);
+  protected readonly newThemeColor = signal<ThemeColor>('teal');
+  protected readonly themeColors = THEME_COLORS;
+  newThemeName = '';
+  private undoTimer: ReturnType<typeof setTimeout> | null = null;
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Ayahs marked since tadabbur mode was turned on, for a quiet count in the confirmation. */
+  private sessionMarks = 0;
 
   private settleTimer: ReturnType<typeof setTimeout> | null = null;
   /** Page to keep while the pager is being resized (rotation, window resize). */
@@ -199,7 +222,12 @@ export class QuranReader {
       destroyRef.onDestroy(() => observer.disconnect());
 
       await this.store.whenReady();
-      const start = clampPage(this.store.state().lastPage);
+      // `/quran?page=N` (from the tadabbur journal) opens that page once, then the URL is tidied.
+      const asked = Number(this.route.snapshot.queryParamMap.get('page'));
+      const start = clampPage(asked >= 1 ? asked : this.store.state().lastPage);
+      if (this.route.snapshot.queryParamMap.has('page')) {
+        void this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
+      }
       this.visiblePage.set(start);
       this.scrollToPage(start, false);
       this.afterRender(() => this.scrollToPage(start, false));
@@ -209,6 +237,8 @@ export class QuranReader {
       this.timer.stop();
       this.audio.stop();
       if (this.settleTimer) clearTimeout(this.settleTimer);
+      if (this.undoTimer) clearTimeout(this.undoTimer);
+      if (this.toastTimer) clearTimeout(this.toastTimer);
     });
 
     // The moment today's wird is completed while reading: a quiet word and a soft haptic, nothing more.
@@ -217,8 +247,7 @@ export class QuranReader {
       const done = this.store.wird()?.done ?? null;
       if (wasDone === false && done) {
         untracked(() => {
-          this.saveToast.set('أتممت وردك اليوم، بارك الله فيك');
-          setTimeout(() => this.saveToast.set(null), 3200);
+          this.showToast('أتممت وردك اليوم، بارك الله فيك', 3200);
           if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate([15, 50, 25]);
         });
       }
@@ -301,9 +330,14 @@ export class QuranReader {
    * Tapping an ayah at either edge of the selection takes it back out (the last one clears the selection),
    * and tapping inside the range shortens it to end there.
    */
-  protected onAyahClicked(event: { ayah: QuranAyah; pageAyahs: QuranAyah[] }) {
+  protected onAyahClicked(event: { ayah: QuranAyah; pageAyahs: QuranAyah[]; page: number }) {
     const { ayah, pageAyahs } = event;
+    if (this.tadabbur.active()) {
+      this.tadabburTap(event);
+      return;
+    }
     this.lastPageAyahs.set(pageAyahs);
+    this.lastTappedPage = event.page;
     const cur = this.selectedRange();
 
     if (!cur || cur.surah !== ayah.surah) {
@@ -421,12 +455,125 @@ export class QuranReader {
 
     this.saveToGroupOpen.set(false);
     this.selectedRange.set(null);
-    this.saveToast.set(`تم حفظ المقطع في «${groupTitle}»`);
-    setTimeout(() => this.saveToast.set(null), 2500);
+    this.showToast(`تم حفظ المقطع في «${groupTitle}»`);
 
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate([15, 30, 15]);
     }
+  }
+
+  // ── Tadabbur ──────────────────────────────────────────────────────────
+
+  protected toggleTadabbur() {
+    const on = !this.tadabbur.active();
+    this.tadabbur.setActive(on);
+    this.selectedRange.set(null);
+    this.sessionMarks = 0;
+    this.dismissUndo();
+    if (on) {
+      const focus = this.tadabbur.focusTheme();
+      this.showToast(focus ? `المس أي آية لتضيفها إلى «${focus.name}»` : 'المس أي آية لتكتب تأملك فيها', 3000);
+    }
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(10);
+  }
+
+  protected setFocus(themeId: string | null) {
+    this.tadabbur.setFocus(themeId);
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(6);
+  }
+
+  /**
+   * In tadabbur mode one tap marks the ayah with the theme being looked for (the reader keeps reading);
+   * a tap on an ayah already marked opens its card to write about it. With no theme chosen, a tap opens
+   * a fresh card straight away.
+   */
+  private tadabburTap({ ayah, page }: { ayah: QuranAyah; page: number }) {
+    const existing = this.tadabbur.at(ayah.surah, ayah.ayah);
+    if (existing) {
+      this.openReflection(existing.id, null);
+      return;
+    }
+    const draft: ReflectionDraft = { surah: ayah.surah, from: ayah.ayah, to: ayah.ayah, page, text: ayah.words.join(' ') };
+    const focus = this.tadabbur.focusTheme();
+    if (!focus) {
+      this.openReflection(null, draft);
+      return;
+    }
+    const created = this.tadabbur.create(draft, [focus.id]);
+    const n = ++this.sessionMarks;
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(12);
+    const tally = n > 1 ? `، ${counted(n, AYAHS)} في هذه الجلسة` : '';
+    this.offerUndo(`أُضيفت إلى «${focus.name}»${tally}`, () => {
+      this.tadabbur.remove(created.id);
+      this.sessionMarks = Math.max(0, this.sessionMarks - 1);
+    });
+  }
+
+  /** The selection bar's "تدبّر": the card for exactly this range, new or already written. */
+  protected reflectOnSelection() {
+    const r = this.selectedRange();
+    if (!r) return;
+    const existing = this.tadabbur.exactly(r.surah, r.startAyah, r.endAyah);
+    const draft: ReflectionDraft = {
+      surah: r.surah,
+      from: r.startAyah,
+      to: r.endAyah,
+      page: this.lastTappedPage,
+      text: r.ayahs.map((a) => a.words.join(' ')).join(' ۝ '),
+    };
+    this.selectedRange.set(null);
+    this.openReflection(existing?.id ?? null, existing ? null : draft);
+  }
+
+  private openReflection(id: string | null, draft: ReflectionDraft | null) {
+    this.dismissUndo();
+    this.reflectionId.set(id);
+    this.reflectionDraft.set(draft);
+    this.reflectionOpen.set(true);
+  }
+
+  protected onReflectionRemoved({ reflection, index }: { reflection: Reflection; index: number }) {
+    this.offerUndo('حُذفت من التدبر', () => this.tadabbur.restore(reflection, index));
+  }
+
+  protected openNewTheme() {
+    const used = new Set(this.tadabbur.themes().map((t) => t.color));
+    this.newThemeColor.set(THEME_COLORS.find((c) => !used.has(c)) ?? 'slate');
+    this.newThemeName = '';
+    this.newThemeOpen.set(true);
+  }
+
+  protected confirmNewTheme() {
+    const name = this.newThemeName.trim();
+    if (!name) return;
+    const theme = this.tadabbur.addTheme(name, this.newThemeColor());
+    this.tadabbur.setFocus(theme.id);
+    this.newThemeOpen.set(false);
+    this.showToast(`المس أي آية لتضيفها إلى «${theme.name}»`, 3000);
+  }
+
+  protected runUndo() {
+    this.undoToast()?.run();
+    this.dismissUndo();
+  }
+
+  private offerUndo(text: string, run: () => void) {
+    if (this.undoTimer) clearTimeout(this.undoTimer);
+    this.saveToast.set(null);
+    this.undoToast.set({ text, run });
+    this.undoTimer = setTimeout(() => this.undoToast.set(null), 4500);
+  }
+
+  private dismissUndo() {
+    if (this.undoTimer) clearTimeout(this.undoTimer);
+    this.undoTimer = null;
+    this.undoToast.set(null);
+  }
+
+  private showToast(text: string, ms = 2500) {
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.saveToast.set(text);
+    this.toastTimer = setTimeout(() => this.saveToast.set(null), ms);
   }
 
   /** Tapping the page outside an ayah clears the selection. */
@@ -489,6 +636,8 @@ export class QuranReader {
       this.settingsOpen() ||
       this.saveToGroupOpen() ||
       this.tafsirOpen() ||
+      this.reflectionOpen() ||
+      this.newThemeOpen() ||
       (target instanceof Element && target.closest('input, select, textarea'))
     ) {
       return;

@@ -24,6 +24,7 @@ Decisions and their reasons: **`docs/DECISIONS.md`** (the source of truth). Appr
 | Calendar | month heatmap, week bars, 24h dial clock, sessions grouping, responsive 2-column desktop | done, unit-tested |
 | Awrad | smart tasbeeh with haptics/spacebar/auto-advance (33/33/34), groups sheets (Tahseen, Ruqyah), morning/evening adhkar (Fajr-based day cycle, preserves evening adhkar across midnight), reactive period transitions | done, unit-tested |
 | Reading settings & Multiple ayah selection | unified settings sheet (cream/white/dark/auto themes, horizontal/vertical mode, font scale), zero-overlap continuous translucent highlight via linear-gradient transparent vertical bands (7px) & 2.35 line-height, bottom floating action bar with `+` / `-` range stepper, copy with feedback, save to groups with repeat selector 1/3/7 and new group creation, synced with Awrad via `AwradStore`, bottom nav gracefully tucks away while selecting | done, unit-tested |
+| Tadabbur mode (P20, T30) | lamp button in the reader's bottom bar → theme strip (الرحمة، العذاب، …, add your own with a colour); one tap marks an ayah with the chosen theme (undo toast), a second tap opens the reflection card (themes, note, guiding questions, tafsir); "تدبّر" in the selection bar saves a whole range. Journal at `/tadabbur` (sidebar + "المزيد"): filter by theme with counts, 30-juz map, diacritic-insensitive search, mushaf/recent order, copy as text, manage themes. Synced as `users/{uid}/profile/tadabbur` | done, unit-tested (`tadabbur.spec.ts`) — **needs the rules deployed** to sync |
 | Recitation player (T20) + tafsir cache (T21) | floating mini player above page nav → expandable sheet (reciter, repeat per ayah, loop range, speed); continuous ayah→surah→page playback with basmala, auto page turn + scroll to playing ayah, Media Session lock-screen controls, retry on network error; header headphones button plays the visible page | done, unit-tested (`quran-audio.spec.ts`) |
 
 ## 3. Run / test
@@ -34,7 +35,7 @@ npx ng test --watch=false
 npx ng build
 bash scripts/screens.sh   # with the dev server running: PNGs of phone/desktop screens into screens/
 ```
-Code map: `src/app/core` (quran meta + page loading, timing engine, reading store + KPI maths, awrad store, cloud sync, format), `src/app/features` (home, quran, awrad, stats, calendar), `src/app/ui` (icon, sheet, ui-state).
+Code map: `src/app/core` (quran meta + page loading, timing engine, reading store + KPI maths, awrad store, tadabbur store, cloud sync, format), `src/app/features` (home, quran, tadabbur, awrad, stats, calendar), `src/app/ui` (icon, sheet, ui-state).
 
 Rules kept from design review: Arabic comma instead of `·` next to Arabic digits; "أسرع/أبطأ ٪" words instead of arrows; timers in `dir="ltr"`; counted nouns via `counted()` in `core/format.ts`.
 
@@ -43,12 +44,12 @@ Done from the CLI (`npm i -g firebase-tools`, `firebase login` as the owner acco
 - Auth providers from `firebase.json` → `auth.providers` (anonymous + Google, `firebase deploy --only auth`). Authorized domains: firebaseapp, web.app, `eslamalix.github.io`, `localhost` (added with firebase-tools `gcp/auth` `updateAuthDomains`; add any new domain the same way).
 - Stay on the free Spark plan (owner requirement): no Cloud Functions or other Blaze features.
 - Firestore `(default)` database, Standard edition, location **eur3** (recreated there on 2026-09-15; `firestore:databases:create` must run before the first rules deploy or the deploy creates it in nam5).
-- Synced per user: `readings/*`, `profile/state`, `status/public`, and device documents `profile/groups`, `profile/adhkar`, `profile/audio` (CloudSync.registerDoc; newest `updatedAt` wins on a new account).
+- Synced per user: `readings/*`, `profile/state`, `status/public`, and device documents `profile/groups`, `profile/adhkar`, `profile/audio`, `profile/tadabbur` (CloudSync.registerDoc; newest `updatedAt` wins on a new account).
 - `firestore.rules` deployed; verified: a user can write `users/{own uid}/…`, another uid is rejected (403).
 - Verified on https://eslamalix.github.io/khatma/: anonymous sign-in and `users/{uid}/status/public` written.
 
 Redeploy config: `firebase deploy --only auth,firestore:rules --project quraan-8ae72`.
-**`firestore.rules` must be deployed before the next app release**: the app now writes `users/{uid}/days/{YYYY-MM-DD}` and the owner summary at `users/{uid}`, and the currently deployed rules reject both (verified: `permission-denied`). The rules are backward compatible with the released app, so they can go up first, on their own.
+**`firestore.rules` must be deployed before the next app release**: the app now writes `users/{uid}/days/{YYYY-MM-DD}`, the owner summary at `users/{uid}` and the tadabbur journal at `users/{uid}/profile/tadabbur`, and the currently deployed rules reject them (verified for the first two: `permission-denied`). Until then the journal still works fully on the device; only its cloud copy waits. The rules are backward compatible with the released app, so they can go up first, on their own.
 
 Earlier note, still true — **the rules were tightened** — it now allows only the paths and field shapes the app writes (`readings` with its six fields, `profile/{state|groups|adhkar|audio}`, `status/public`), because anyone can open an anonymous account and an unconstrained subtree is a free way to burn the shared Spark quota. Deploy it with the command above and the rules simulator in the console will confirm the app's writes still pass.
 Web app hosting is GitHub Pages from the `gh-pages` branch: `MSYS_NO_PATHCONV=1 npx ng build --base-href /khatma/`, copy `dist/quran-kpi/browser` to `gh-pages` with `404.html` (copy of index) and `.nojekyll`.

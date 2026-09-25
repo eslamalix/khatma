@@ -150,6 +150,8 @@
   &.selected.sel-last { @include pill(color-mix(in srgb, var(--accent) 17%, var(--q-bg)), false, true); }
   &.selected.sel-first.sel-last { @include pill(color-mix(in srgb, var(--accent) 17%, var(--q-bg))); }
   &.playing { @include pill(color-mix(in srgb, var(--q-gold) 20%, var(--q-bg))); }
+  /* Tadabbur: a marked ayah wears its theme's colour; selection and recitation still show over it. */
+  &.marked.mark-mode:not(.selected):not(.playing) { @include pill(color-mix(in srgb, var(--mark) 20%, var(--q-bg))); }
 }
 
 /* Ayah number inside the classic end-of-ayah ornament (Amiri Quran draws ۝ around the digits). */
@@ -160,6 +162,7 @@
   line-height: 1;
   white-space: nowrap;
   transition: color 0.2s var(--ease);
+  .marked & { color: var(--mark); }
   .selected & { color: var(--accent); }
 }
 

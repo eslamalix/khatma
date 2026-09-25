@@ -1,0 +1,276 @@
+<div class="page">
+  <header class="page-header">
+    <h1 class="page-title">التدبّر</h1>
+    <p class="page-subtitle">{{ summary() }}</p>
+  </header>
+
+  <!-- The way in: straight to the mushaf, looking for the theme on screen. -->
+  <button type="button" class="start" (click)="startSession()">
+    <span class="start-icon" [style.--c]="spreadColor()"
+      ><app-icon name="lamp" [size]="22" [stroke]="1.9"
+    /></span>
+    <span class="start-text">
+      <strong>{{
+        activeTheme() ? 'ابحث عن آيات ' + activeTheme()!.name : 'ابدأ جلسة تدبّر'
+      }}</strong>
+      <small>المس أي آية في المصحف لتضيفها إليه</small>
+    </span>
+    <app-icon name="chevronLeft" [size]="20" [stroke]="2" />
+  </button>
+
+  <!-- Themes as filters, each with how many ayahs it holds. -->
+  <div class="filters" role="group" aria-label="المواضيع">
+    <button type="button" class="filter" [class.on]="filter() === null" (click)="filter.set(null)">
+      <span>الكل</span>
+      <span class="count">{{ ar(store.reflections().length) }}</span>
+    </button>
+    @for (t of store.themes(); track t.id) {
+      <button
+        type="button"
+        class="filter"
+        [class.on]="filter() === t.id"
+        [style.--c]="'var(--t-' + t.color + ')'"
+        [attr.aria-pressed]="filter() === t.id"
+        (click)="setFilter(t.id)"
+      >
+        <span class="dot"></span>
+        <span>{{ t.name }}</span>
+        <span class="count">{{ ar(counts().get(t.id) ?? 0) }}</span>
+      </button>
+    }
+    <button
+      type="button"
+      class="filter edit"
+      (click)="manageOpen.set(true)"
+      aria-label="تعديل المواضيع"
+    >
+      <app-icon name="pencil" [size]="15" [stroke]="2" />
+    </button>
+  </div>
+
+  @if (store.reflections().length) {
+    <!-- Where these ayahs fall in the mushaf, juz by juz. -->
+    @if (list().length) {
+      <section class="map" [style.--c]="spreadColor()" aria-label="مواضعها في المصحف">
+        <div class="map-head">
+          <span class="map-title">مواضعها في المصحف</span>
+          <span class="map-meta">{{ spreadLabel() }}</span>
+        </div>
+        <div class="map-cells">
+          @for (cell of spread(); track cell.juz) {
+            <span
+              class="cell"
+              [class.empty]="!cell.n"
+              [style.--level]="cell.level"
+              [attr.title]="'الجزء ' + ar(cell.juz) + (cell.n ? '، ' + ar(cell.n) : '')"
+            ></span>
+          }
+        </div>
+        <div class="map-scale"><span>الجزء ١</span><span>١٥</span><span>٣٠</span></div>
+      </section>
+    }
+
+    <div class="tools">
+      <label class="search">
+        <app-icon name="search" [size]="17" [stroke]="2" />
+        <input
+          type="search"
+          [ngModel]="query()"
+          (ngModelChange)="query.set($event)"
+          placeholder="ابحث في الآيات وتأملاتك"
+          aria-label="بحث"
+        />
+      </label>
+      <div class="segmented sort" role="group" aria-label="الترتيب">
+        <button
+          type="button"
+          [attr.aria-pressed]="sort() === 'mushaf'"
+          (click)="sort.set('mushaf')"
+        >
+          المصحف
+        </button>
+        <button
+          type="button"
+          [attr.aria-pressed]="sort() === 'recent'"
+          (click)="sort.set('recent')"
+        >
+          الأحدث
+        </button>
+      </div>
+      <button
+        type="button"
+        class="tool"
+        (click)="copyList()"
+        [disabled]="!list().length"
+        aria-label="نسخ القائمة"
+      >
+        <app-icon name="copy" [size]="17" [stroke]="1.9" />
+      </button>
+    </div>
+
+    @for (section of sections(); track section.surah ?? 'all') {
+      <section class="section">
+        @if (section.title) {
+          <h2 class="section-title">
+            {{ section.title }} <span>{{ ar(section.items.length) }}</span>
+          </h2>
+        }
+        <div class="cards">
+          @for (r of section.items; track r.id) {
+            <article
+              class="card-item"
+              [style.--c]="colorOf(r)"
+              (click)="openCard(r)"
+              (keydown.enter)="openCard(r)"
+              tabindex="0"
+              role="button"
+              [attr.aria-label]="rangeLabel(r)"
+            >
+              <header class="item-head">
+                <span class="ref">{{ rangeLabel(r) }}</span>
+                <span class="tags">
+                  @for (t of themesOf(r); track t.id) {
+                    <span class="tag" [style.--c]="'var(--t-' + t.color + ')'">{{ t.name }}</span>
+                  }
+                </span>
+              </header>
+              <p class="ayah">{{ r.text }}</p>
+              @if (r.note.trim()) {
+                <p class="note">{{ r.note }}</p>
+              }
+              <footer class="item-foot">
+                <span>{{ dayMonth(r.createdAt) }}</span>
+                <button
+                  type="button"
+                  class="to-mushaf"
+                  (click)="$event.stopPropagation(); goToMushaf(r)"
+                >
+                  <span>في المصحف، ص {{ ar(r.page) }}</span>
+                  <app-icon name="chevronLeft" [size]="14" [stroke]="2.2" />
+                </button>
+              </footer>
+            </article>
+          }
+        </div>
+      </section>
+    } @empty {
+      <p class="nothing">
+        @if (query()) {
+          لا نتائج لـ«{{ query() }}»
+        } @else {
+          لم تضف آيات إلى «{{ activeTheme()?.name }}» بعد.
+        }
+      </p>
+    }
+  } @else {
+    <!-- First visit: how it works, in three steps. -->
+    <section class="intro">
+      <ol>
+        <li>
+          <span class="step">١</span
+          ><span>في المصحف اضغط زر <b>المصباح</b> أسفل الشاشة لتبدأ وضع التدبّر.</span>
+        </li>
+        <li>
+          <span class="step">٢</span
+          ><span
+            >اختر ما تبحث عنه، مثل <b class="c-green">الرحمة</b> أو <b class="c-red">العذاب</b>، ثم
+            اقرأ.</span
+          >
+        </li>
+        <li>
+          <span class="step">٣</span
+          ><span
+            >كلما مرّت بك آية منه <b>المسها</b> فتتلوّن وتُحفظ هنا. المسها مرة أخرى لتكتب
+            تأملك.</span
+          >
+        </li>
+      </ol>
+    </section>
+  }
+</div>
+
+@if (toast(); as t) {
+  <div class="undo-toast" role="status">
+    <span>{{ t.label }}</span>
+    @if (t.run) {
+      <button type="button" (click)="runUndo()">تراجع</button>
+    }
+  </div>
+}
+
+<app-reflection-sheet
+  [open]="cardOpen()"
+  [reflectionId]="cardId()"
+  [showMushafLink]="true"
+  (closed)="cardOpen.set(false)"
+  (removed)="onRemoved($event)"
+  (openInMushaf)="goToMushaf($event)"
+/>
+
+<app-sheet
+  [open]="manageOpen()"
+  title="المواضيع"
+  (closed)="manageOpen.set(false); colorFor.set(null)"
+>
+  <ul class="manage">
+    @for (t of store.themes(); track t.id) {
+      <li>
+        <div class="manage-row">
+          <button
+            type="button"
+            class="color-btn"
+            [style.--c]="'var(--t-' + t.color + ')'"
+            (click)="colorFor.set(colorFor() === t.id ? null : t.id)"
+            [attr.aria-expanded]="colorFor() === t.id"
+            aria-label="تغيير اللون"
+          ></button>
+          <input
+            #nameInput
+            type="text"
+            [value]="t.name"
+            maxlength="30"
+            (blur)="rename(t, nameInput.value)"
+            (keydown.enter)="nameInput.blur()"
+            aria-label="اسم الموضوع"
+          />
+          <span class="manage-count">{{ ar(counts().get(t.id) ?? 0) }}</span>
+          <button
+            type="button"
+            class="icon"
+            (click)="deleteTheme(t)"
+            [attr.aria-label]="'حذف ' + t.name"
+          >
+            <app-icon name="trash" [size]="18" [stroke]="1.9" />
+          </button>
+        </div>
+        @if (colorFor() === t.id) {
+          <div class="palette">
+            @for (c of colors; track c) {
+              <button
+                type="button"
+                class="swatch"
+                [class.on]="t.color === c"
+                [style.--c]="'var(--t-' + c + ')'"
+                [attr.aria-label]="c"
+                (click)="recolor(t, c)"
+              ></button>
+            }
+          </div>
+        }
+      </li>
+    }
+  </ul>
+  <form class="manage-add" (submit)="$event.preventDefault(); addTheme()">
+    <input
+      type="text"
+      name="newTheme"
+      [(ngModel)]="newThemeName"
+      maxlength="30"
+      placeholder="موضوع جديد، مثل: الجنة"
+      aria-label="موضوع جديد"
+      autocomplete="off"
+    />
+    <button type="submit" [disabled]="!newThemeName.trim()">إضافة</button>
+  </form>
+  <p class="hint">حذف موضوع لا يحذف الآيات، تبقى في «الكل» مع تأملاتك.</p>
+</app-sheet>

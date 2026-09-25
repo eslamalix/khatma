@@ -1,0 +1,143 @@
+<app-sheet [open]="open()" [title]="title()" (closed)="close()">
+  @if (subject(); as s) {
+    <div class="card-body">
+      <blockquote class="ayah-text" [class.long]="ayahs().length > 2">
+        @for (text of ayahs(); track $index) {
+          <span
+            >{{ text }}&nbsp;<span class="end">۝{{ ar(s.from + $index) }}</span>
+          </span>
+        }
+      </blockquote>
+
+      <section class="block">
+        <h3 class="label">المواضيع</h3>
+        <div class="themes" role="group" aria-label="مواضيع الآية">
+          @for (t of store.themes(); track t.id) {
+            <button
+              type="button"
+              class="theme"
+              [class.on]="hasTheme(t.id)"
+              [style.--c]="'var(--t-' + t.color + ')'"
+              [attr.aria-pressed]="hasTheme(t.id)"
+              (click)="toggleTheme(t.id)"
+            >
+              @if (hasTheme(t.id)) {
+                <app-icon name="check" [size]="13" [stroke]="2.6" />
+              } @else {
+                <span class="dot"></span>
+              }
+              <span>{{ t.name }}</span>
+            </button>
+          }
+          @if (!adding()) {
+            <button type="button" class="theme add" (click)="startNewTheme()">
+              <app-icon name="plus" [size]="13" [stroke]="2.4" />
+              <span>موضوع جديد</span>
+            </button>
+          }
+        </div>
+        @if (adding()) {
+          <form class="new-theme" (submit)="$event.preventDefault(); confirmNewTheme()">
+            <input
+              type="text"
+              name="newName"
+              [(ngModel)]="newName"
+              placeholder="مثل: الجنة، الصبر، الأنبياء"
+              maxlength="30"
+              aria-label="اسم الموضوع"
+              autocomplete="off"
+            />
+            <div class="palette" role="radiogroup" aria-label="لون الموضوع">
+              @for (c of colors; track c) {
+                <button
+                  type="button"
+                  class="swatch"
+                  [class.on]="newColor() === c"
+                  [style.--c]="'var(--t-' + c + ')'"
+                  role="radio"
+                  [attr.aria-checked]="newColor() === c"
+                  [attr.aria-label]="c"
+                  (click)="newColor.set(c)"
+                ></button>
+              }
+            </div>
+            <div class="new-actions">
+              <button type="button" class="ghost" (click)="adding.set(false)">إلغاء</button>
+              <button type="submit" class="solid" [disabled]="!newName.trim()">إضافة</button>
+            </div>
+          </form>
+        }
+      </section>
+
+      <section class="block">
+        <h3 class="label">تأمّلك</h3>
+        <textarea
+          #noteField
+          class="note"
+          [value]="note()"
+          (input)="onNote(noteField.value)"
+          rows="4"
+          placeholder="ماذا وقع في قلبك؟ ماذا فهمت، وبماذا ستعمل؟"
+          aria-label="تأملك في الآية"
+        ></textarea>
+        <div class="prompts" aria-label="أسئلة تعين على التدبر">
+          @for (p of prompts; track p) {
+            <button type="button" class="prompt" (click)="addPrompt(p)">{{ p }}</button>
+          }
+        </div>
+      </section>
+
+      <section class="block tafsir">
+        <button
+          type="button"
+          class="disclosure"
+          [attr.aria-expanded]="tafsirOpen()"
+          (click)="toggleTafsir()"
+        >
+          <app-icon name="quran" [size]="17" [stroke]="1.9" />
+          <span>التفسير الميسر</span>
+          <app-icon
+            [name]="tafsirOpen() ? 'chevronUp' : 'chevronDown'"
+            [size]="16"
+            [stroke]="2.2"
+          />
+        </button>
+        @if (tafsirOpen()) {
+          @if (tafsir(); as items) {
+            @for (t of items; track t.ayah) {
+              <p class="tafsir-text">
+                @if (items.length > 1) {
+                  <b>{{ ar(t.ayah) }}.</b>
+                }
+                {{ t.text }}
+              </p>
+            }
+          } @else {
+            <p class="tafsir-text muted">جارٍ التحميل…</p>
+          }
+        }
+      </section>
+
+      <footer class="actions">
+        @if (reflection()) {
+          <button
+            type="button"
+            class="icon-btn danger"
+            (click)="remove()"
+            aria-label="حذف من التدبر"
+          >
+            <app-icon name="trash" [size]="19" [stroke]="1.9" />
+          </button>
+        }
+        @if (showMushafLink() && reflection()) {
+          <button type="button" class="ghost" (click)="goToMushaf()">
+            <app-icon name="quran" [size]="17" [stroke]="1.9" />
+            <span>في المصحف</span>
+          </button>
+        }
+        <span class="meta">{{ created() }}</span>
+        <button type="button" class="solid done" (click)="close()">تم</button>
+      </footer>
+    </div>
+  }
+</app-sheet>

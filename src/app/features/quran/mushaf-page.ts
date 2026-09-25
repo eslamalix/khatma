@@ -16,6 +16,7 @@ import { QuranPages } from '../../core/quran/quran-pages.service';
 import { QuranAyah, QuranPage } from '../../core/quran/quran-page';
 import { ar } from '../../core/format';
 import { AYAH_COUNTS, surahName } from '../../core/quran/quran-meta';
+import { AyahMark, ayahKey } from '../../core/tadabbur/tadabbur';
 
 /** How far a page may grow or shrink its text to fill the screen before the reader's own zoom applies. */
 const FIT_MIN = 0.9;
@@ -42,7 +43,11 @@ export class MushafPage {
   readonly fontScale = input(1);
   readonly selectedRange = input<{ surah: number; startAyah: number; endAyah: number } | null>(null);
   readonly playingAyah = input<{ surah: number; ayah: number } | null>(null);
-  readonly ayahClicked = output<{ ayah: QuranAyah; pageAyahs: QuranAyah[] }>();
+  /** Ayahs the reader marked while reflecting (keyed `surah:ayah`). */
+  readonly marks = input<ReadonlyMap<string, AyahMark> | null>(null);
+  /** Tadabbur mode: marks are drawn as coloured bands; otherwise only their ornament is tinted. */
+  readonly markMode = input(false);
+  readonly ayahClicked = output<{ ayah: QuranAyah; pageAyahs: QuranAyah[]; page: number }>();
 
   protected readonly data = signal<QuranPage | null>(null);
   protected readonly failed = signal(false);
@@ -56,6 +61,15 @@ export class MushafPage {
     return a.surah === r.surah && a.ayah >= r.startAyah && a.ayah <= r.endAyah;
   }
 
+  protected markOf(a: QuranAyah): AyahMark | null {
+    return this.marks()?.get(ayahKey(a.surah, a.ayah)) ?? null;
+  }
+
+  protected markColor(a: QuranAyah): string | null {
+    const mark = this.markOf(a);
+    return mark ? `var(--t-${mark.color ?? 'slate'})` : null;
+  }
+
   protected isAyahPlaying(a: QuranAyah): boolean {
     const p = this.playingAyah();
     return !!p && p.surah === a.surah && p.ayah === a.ayah;
@@ -67,6 +81,7 @@ export class MushafPage {
     this.ayahClicked.emit({
       ayah: a,
       pageAyahs: this.data()?.ayahs ?? [a],
+      page: this.page(),
     });
     // The selection toolbar rises from the bottom; lift the tapped ayah above it.
     requestAnimationFrame(() => this.reveal(el, 240));

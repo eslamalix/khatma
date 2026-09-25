@@ -69,12 +69,12 @@ service cloud.firestore {
       }
 
       // Device documents: `state` is the reading state itself, the rest are { data, updatedAt } wrappers.
-      // Private to the reader: the dashboard has no business in someone's ayah groups or adhkar.
+      // Private to the reader: the dashboard has no business in someone's ayah groups, adhkar or reflections.
       match /profile/{name} {
         allow read: if mine(uid);
         allow create, update: if mine(uid) && (
           name == 'state'
-          || (name in ['groups', 'adhkar', 'audio'] && request.resource.data.keys().hasOnly(['data', 'updatedAt']))
+          || (name in ['groups', 'adhkar', 'audio', 'tadabbur'] && request.resource.data.keys().hasOnly(['data', 'updatedAt']))
         );
         allow delete: if mine(uid);
       }
