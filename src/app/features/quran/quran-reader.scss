@@ -388,6 +388,19 @@
   }
 }
 
+/* First-use tips float above the page navigation (and above the tadabbur strip when it shows). */
+.tip-float {
+  position: absolute;
+  z-index: 11;
+  /* Centred by margins: the card's own entrance animation owns \`transform\`. */
+  inset-inline: 0;
+  margin-inline: auto;
+  bottom: calc(var(--bottom-h) + 10px);
+  width: min(calc(100% - 24px), 440px);
+  &.above-strip { bottom: calc(var(--bottom-h) + var(--strip-h, 52px) + 18px); }
+}
+:host(.has-player) .tip-float { bottom: calc(var(--player-bottom) + var(--player-h) + 10px); }
+
 @media (max-width: 400px) {
   .nav { padding: 0 4px; gap: 2px; }
   .nav-btn { width: 42px; height: 44px; }
@@ -398,6 +411,8 @@
   :host { background: var(--desk); }
   :host(.tadabbur-on) { --player-bottom: calc(22px + 54px + 12px + var(--strip-h) + 10px); }
   .tadabbur-strip { bottom: calc(22px + 54px + 12px); }
+  .tip-float { bottom: calc(22px + 54px + 14px); }
+  .tip-float.above-strip { bottom: calc(22px + 54px + 12px + var(--strip-h, 52px) + 12px); }
   :host(.has-selection) .chrome-bottom {
     transform: translate(-50%, 140%);
     opacity: 0;

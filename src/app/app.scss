@@ -129,3 +129,7 @@
   &:hover { background: color-mix(in srgb, var(--fill) 85%, var(--ink) 15%); }
   &:active { transform: scale(0.98); }
 }
+
+/* "جولة التطبيق" sits at the foot of the sidebar, away from the screens. */
+.tour-link { margin-top: auto; }
+button.menu-item { width: 100%; text-align: start; }

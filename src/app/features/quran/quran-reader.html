@@ -108,6 +108,13 @@
 
 <app-quran-player />
 
+@if (readerTip()) {
+  <app-tip class="tip-float" title="طريقة القراءة" [lines]="readerTipLines()" (dismissed)="onboarding.dismiss('reader')" />
+}
+@if (tadabburTip()) {
+  <app-tip class="tip-float above-strip" title="وضع التدبّر" [lines]="tadabburTipLines" (dismissed)="onboarding.dismiss('tadabbur')" />
+}
+
 <!-- Tadabbur mode: the theme being looked for, within thumb's reach. A tap on an ayah marks it with it. -->
 @if (tadabbur.active()) {
   <div class="tadabbur-strip" [class.gathering]="tadabbur.collection().length || tadabbur.targetId()" role="toolbar" aria-label="وضع التدبر">

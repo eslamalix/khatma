@@ -14,6 +14,10 @@
         <span>{{ item.label }}</span>
       </a>
     }
+    <button type="button" class="side-link tour-link" (click)="onboarding.replay()" title="جولة التطبيق">
+      <app-icon name="bolt" [size]="22" [stroke]="1.7" />
+      <span>جولة التطبيق</span>
+    </button>
   </nav>
 
   <main class="content">
@@ -48,6 +52,14 @@
         <app-icon name="stats" [size]="22" [stroke]="1.7" />
         <span>الإحصائيات</span>
       </a>
+      <button type="button" class="menu-item" (click)="replayTour()">
+        <app-icon name="bolt" [size]="22" [stroke]="1.7" />
+        <span>جولة التطبيق</span>
+      </button>
     </div>
   </app-sheet>
+
+  @if (onboarding.welcomeOpen()) {
+    <app-welcome />
+  }
 </div>

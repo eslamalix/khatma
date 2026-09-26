@@ -18,10 +18,12 @@ const TADABBUR: NavItem = { path: '/tadabbur', label: 'التدبر', icon: 'lam
 const STATS: NavItem = { path: '/stats', label: 'الإحصائيات', icon: 'stats' };
 const CALENDAR: NavItem = { path: '/calendar', label: 'التقويم', icon: 'calendar' };
 import { Account } from './features/account/account';
+import { Welcome } from './ui/welcome';
+import { Onboarding } from './core/onboarding/onboarding';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, Sheet, Account],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, Sheet, Account, Welcome],
   templateUrl: './app.html',
   styleUrl: './app.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -31,6 +33,7 @@ export class App {
   private readonly store = inject(ReadingStore);
   private readonly router = inject(Router);
   
+  protected readonly onboarding = inject(Onboarding);
   readonly moreOpen = signal(false);
   readonly isQuran = signal(false);
 
@@ -41,6 +44,13 @@ export class App {
       }
     });
     this.isQuran.set(this.router.url.startsWith('/quran'));
+    // A first open, before any reading: a short welcome.
+    void this.store.whenReady().then(() => this.onboarding.maybeWelcome(this.store.state().lastReadAt !== null));
+  }
+
+  protected replayTour() {
+    this.moreOpen.set(false);
+    this.onboarding.replay();
   }
 
   /** Phone tab bar: 5 thumb-friendly ergonomic items (RTL: rightmost is HOME). */

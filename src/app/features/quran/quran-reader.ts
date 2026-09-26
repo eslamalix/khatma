@@ -43,6 +43,8 @@ import { TadabburStore } from '../../core/tadabbur/tadabbur.store';
 import { CardAyah, Reflection } from '../../core/tadabbur/tadabbur';
 import { labelOf, ReflectionSheet } from '../tadabbur/reflection-sheet';
 import { CollectSheet } from '../tadabbur/collect-sheet';
+import { Onboarding } from '../../core/onboarding/onboarding';
+import { Tip, TipLine } from '../../ui/tip';
 
 const WINDOW = 2;
 const SETTLE_MS = 140;
@@ -71,7 +73,7 @@ export interface AyahRangeSelection {
 
 @Component({
   selector: 'app-quran-reader',
-  imports: [MushafPage, Icon, Sheet, FormsModule, QuranPlayer, ReflectionSheet, CollectSheet, RouterLink],
+  imports: [MushafPage, Icon, Sheet, FormsModule, QuranPlayer, ReflectionSheet, CollectSheet, RouterLink, Tip],
   templateUrl: './quran-reader.html',
   styleUrl: './quran-reader.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -94,6 +96,7 @@ export class QuranReader {
   private readonly player = viewChild.required(QuranPlayer);
   private readonly injector = inject(Injector);
   protected readonly tadabbur = inject(TadabburStore);
+  protected readonly onboarding = inject(Onboarding);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
@@ -143,6 +146,33 @@ export class QuranReader {
     const p = this.visiblePage();
     return this.spread() && p < TOTAL_PAGES ? `${ar(p)}–${ar(p + 1)}` : ar(p);
   });
+  // First-use tips: how to read here, and how tadabbur works the first time it is turned on.
+  protected readonly readerTip = computed(
+    () =>
+      this.onboarding.shouldShow('reader') &&
+      !this.onboarding.welcomeOpen() &&
+      !this.tadabbur.active() &&
+      !this.selectedRange(),
+  );
+  protected readonly tadabburTip = computed(
+    () => this.tadabbur.active() && this.onboarding.shouldShow('tadabbur') && !this.tadabbur.collection().length,
+  );
+  protected readonly readerTipLines = computed<TipLine[]>(() => [
+    {
+      icon: 'chevronLeft',
+      text: this.width() >= 768 ? 'قلّب الصفحات بالأسهم أو بالكيبورد.' : 'اسحب يميناً ويساراً لتقليب الصفحات.',
+    },
+    { icon: 'quran', text: 'المس أي آية لتستمع لها، أو تقرأ تفسيرها، أو تنسخها وتحفظها.' },
+    { icon: 'chevronDown', text: 'اضغط رقم الصفحة أو اسم السورة لتنتقل إلى أي سورة أو جزء.' },
+    { icon: 'lamp', text: 'زر المصباح يفتح وضع التدبّر: تجمع آيات في بطاقات وتكتب تأملك.' },
+  ]);
+  protected readonly tadabburTipLines: readonly TipLine[] = [
+    { icon: 'plus', text: 'المس الآيات التي تريدها، متتالية أو متفرقة ولو في صفحات مختلفة. المسها مرة أخرى لتُخرجها.' },
+    { icon: 'bookmark', text: 'اضغط «حفظ في بطاقة» لتضعها في بطاقة جديدة أو بطاقة عندك، ثم اكتب تأملك.' },
+    { icon: 'journal', text: 'بطاقاتك وإحصائيات التدبر في دفتر التدبر.' },
+    { icon: 'bolt', text: 'وقت التدبر وموضعه منفصلان عن الختمة ولا يُحسبان فيها.' },
+  ];
+
   /** Tadabbur time today, including the page open right now. */
   protected readonly tadabburToday = computed(() =>
     shortDuration(this.tadabbur.stats().todayMs + (this.tadabbur.active() ? this.timer.elapsedMs() : 0)),
@@ -551,9 +581,7 @@ export class QuranReader {
     const on = !this.tadabbur.active();
     this.selectedRange.set(null);
     this.dismissUndo();
-    const hasPlace = this.tadabbur.lastPage() !== null;
     this.tadabbur.setActive(on);
-    if (on && !hasPlace) this.showToast('المس الآيات التي تريد جمعها، متتالية أو متفرقة', 3000);
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(10);
   }
 
