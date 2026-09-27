@@ -8,144 +8,236 @@
 
   @if (card(); as r) {
     <header class="head">
-      <input
-        class="title"
-        type="text"
-        [value]="title()"
-        (input)="onTitle(titleField.value)"
-        #titleField
-        maxlength="60"
-        [placeholder]="placeholder()"
-        aria-label="عنوان البطاقة"
-      />
+      <div class="title-row">
+        <input
+          #titleField
+          class="title"
+          type="text"
+          [value]="title()"
+          (input)="onTitle(titleField.value)"
+          (keydown.enter)="titleField.blur()"
+          maxlength="60"
+          [placeholder]="placeholder()"
+          aria-label="عنوان البطاقة"
+        />
+        <button type="button" class="title-edit" (click)="editTitle()" aria-label="تعديل العنوان">
+          <app-icon name="pencil" [size]="16" [stroke]="2" />
+        </button>
+      </div>
       <p class="meta">{{ meta() }}</p>
 
-      <div class="themes" role="group" aria-label="مواضيع البطاقة">
-        @for (t of store.themes(); track t.id) {
-          <button
-            type="button"
-            class="theme"
-            [class.on]="hasTheme(t.id)"
-            [style.--c]="'var(--t-' + t.color + ')'"
-            [attr.aria-pressed]="hasTheme(t.id)"
-            (click)="toggleTheme(t.id)"
-          >
-            @if (hasTheme(t.id)) {
-              <app-icon name="check" [size]="13" [stroke]="2.6" />
-            } @else {
-              <span class="dot"></span>
-            }
-            <span>{{ t.name }}</span>
+      <!-- Themes: what the card is about, and the picker only when asked for. -->
+      @if (!editingThemes()) {
+        <div class="themes">
+          @for (t of cardThemes(); track t.id) {
+            <span class="theme tag" [style.--c]="'var(--t-' + t.color + ')'">{{ t.name }}</span>
+          }
+          <button type="button" class="theme edit" (click)="editingThemes.set(true)">
+            <app-icon [name]="cardThemes().length ? 'pencil' : 'plus'" [size]="13" [stroke]="2.3" />
+            <span>{{ cardThemes().length ? 'المواضيع' : 'أضف موضوعًا' }}</span>
           </button>
-        }
-        @if (!adding()) {
-          <button type="button" class="theme add" (click)="startNewTheme()">
-            <app-icon name="plus" [size]="13" [stroke]="2.4" />
-            <span>موضوع جديد</span>
-          </button>
-        }
-      </div>
-      @if (adding()) {
-        <form class="new-theme" (submit)="$event.preventDefault(); confirmNewTheme()">
-          <input
-            type="text"
-            name="newName"
-            [(ngModel)]="newName"
-            placeholder="مثل: الجنة، الصبر، الأنبياء"
-            maxlength="30"
-            aria-label="اسم الموضوع"
-            autocomplete="off"
-          />
-          <div class="palette" role="radiogroup" aria-label="لون الموضوع">
-            @for (c of colors; track c) {
+        </div>
+      } @else {
+        <div class="picker">
+          <div class="themes" role="group" aria-label="مواضيع البطاقة">
+            @for (t of store.themes(); track t.id) {
               <button
                 type="button"
-                class="swatch"
-                [class.on]="newColor() === c"
-                [style.--c]="'var(--t-' + c + ')'"
-                role="radio"
-                [attr.aria-checked]="newColor() === c"
-                [attr.aria-label]="c"
-                (click)="newColor.set(c)"
-              ></button>
+                class="theme"
+                [class.on]="hasTheme(t.id)"
+                [style.--c]="'var(--t-' + t.color + ')'"
+                [attr.aria-pressed]="hasTheme(t.id)"
+                (click)="toggleTheme(t.id)"
+              >
+                @if (hasTheme(t.id)) {
+                  <app-icon name="check" [size]="13" [stroke]="2.6" />
+                } @else {
+                  <span class="dot"></span>
+                }
+                <span>{{ t.name }}</span>
+              </button>
+            }
+            @if (!adding()) {
+              <button type="button" class="theme add" (click)="startNewTheme()">
+                <app-icon name="plus" [size]="13" [stroke]="2.4" />
+                <span>موضوع جديد</span>
+              </button>
             }
           </div>
-          <div class="new-actions">
-            <button type="button" class="ghost" (click)="adding.set(false)">إلغاء</button>
-            <button type="submit" class="solid" [disabled]="!newName.trim()">إضافة</button>
+          @if (adding()) {
+            <form class="new-theme" (submit)="$event.preventDefault(); confirmNewTheme()">
+              <input
+                type="text"
+                name="newName"
+                [(ngModel)]="newName"
+                placeholder="مثل: الجنة، الصبر، الأنبياء"
+                maxlength="30"
+                aria-label="اسم الموضوع"
+                autocomplete="off"
+              />
+              <div class="palette" role="radiogroup" aria-label="لون الموضوع">
+                @for (c of colors; track c) {
+                  <button
+                    type="button"
+                    class="swatch"
+                    [class.on]="newColor() === c"
+                    [style.--c]="'var(--t-' + c + ')'"
+                    role="radio"
+                    [attr.aria-checked]="newColor() === c"
+                    [attr.aria-label]="c"
+                    (click)="newColor.set(c)"
+                  ></button>
+                }
+              </div>
+              <div class="row-end">
+                <button type="button" class="ghost" (click)="adding.set(false)">إلغاء</button>
+                <button type="submit" class="solid" [disabled]="!newName.trim()">إضافة</button>
+              </div>
+            </form>
+          }
+          <div class="row-end">
+            <button type="button" class="solid" (click)="doneThemes()">تم</button>
           </div>
-        </form>
+        </div>
       }
     </header>
 
-    <!-- The ayahs, one under the other; each opens where it sits in the mushaf, or its tafsir. -->
-    <section class="ayahs" aria-label="الآيات">
+    <!-- The ayahs, read as passages. -->
+    <section class="ayahs" aria-labelledby="ayahs-title">
+      <div class="section-head">
+        <h2 id="ayahs-title" class="label">الآيات</h2>
+        <button
+          type="button"
+          class="link"
+          [attr.aria-pressed]="editingAyahs()"
+          (click)="editingAyahs.set(!editingAyahs())"
+        >
+          {{ editingAyahs() ? 'تم' : 'تعديل' }}
+        </button>
+      </div>
+
+      @if (!editingAyahs() && !tafsirOpen().size) {
+        <p class="hint">المس أي آية لترى تفسيرها.</p>
+      }
+      @if (editingAyahs()) {
+        <p class="hint">المس ✕ لإخراج آية من البطاقة.</p>
+      }
+
       @if (undoAyah(); as u) {
         <div class="inline-undo" role="status">
           <span>أُزيلت {{ surahName(u.surah) }} {{ ar(u.ayah) }}</span>
           <button type="button" (click)="restoreAyah()">تراجع</button>
         </div>
       }
-      @for (a of r.ayahs; track key(a.surah, a.ayah)) {
-        <article class="ayah">
-          <header class="ayah-head">
-            <span class="ayah-ref"
-              >{{ surahName(a.surah) }}، الآية {{ ar(a.ayah)
-              }}<small>، صفحة {{ ar(a.page) }}</small></span
-            >
-            <button
-              type="button"
-              class="remove"
-              (click)="removeAyah(a)"
-              [attr.aria-label]="'إزالة ' + surahName(a.surah) + ' ' + ar(a.ayah) + ' من البطاقة'"
-            >
-              <app-icon name="close" [size]="14" [stroke]="2.3" />
-            </button>
-          </header>
-          <p class="ayah-text">
-            {{ a.text }}&nbsp;<span class="end">۝{{ ar(a.ayah) }}</span>
-          </p>
-          <div class="ayah-actions">
-            <button type="button" class="act" (click)="openInMushaf(a)">
-              <app-icon name="quran" [size]="16" [stroke]="1.9" />
-              <span>في المصحف</span>
-            </button>
-            <button
-              type="button"
-              class="act"
-              [class.on]="isTafsirOpen(a)"
-              [attr.aria-expanded]="isTafsirOpen(a)"
-              (click)="toggleTafsir(a)"
-            >
-              <app-icon name="note" [size]="16" [stroke]="1.9" />
-              <span>التفسير</span>
-              <app-icon
-                [name]="isTafsirOpen(a) ? 'chevronUp' : 'chevronDown'"
-                [size]="14"
-                [stroke]="2.2"
-              />
-            </button>
-          </div>
-          @if (isTafsirOpen(a)) {
-            <div class="tafsir">
-              <span class="tafsir-label">التفسير الميسر</span>
-              @if (tafsirOf(a); as text) {
-                <p>{{ text }}</p>
-              } @else {
-                <p class="muted">جارٍ التحميل…</p>
-              }
-            </div>
+
+      @if (editingAyahs()) {
+        <ul class="edit-list">
+          @for (a of r.ayahs; track key(a.surah, a.ayah)) {
+            <li>
+              <span class="edit-ref">{{ surahName(a.surah) }} {{ ar(a.ayah) }}</span>
+              <span class="edit-text">{{ a.text }}</span>
+              <button
+                type="button"
+                class="remove"
+                (click)="removeAyah(a)"
+                [attr.aria-label]="'إزالة ' + surahName(a.surah) + ' ' + ar(a.ayah) + ' من البطاقة'"
+              >
+                <app-icon name="close" [size]="15" [stroke]="2.3" />
+              </button>
+            </li>
           }
-        </article>
+        </ul>
+      } @else {
+        @for (p of passages(); track passageKey(p)) {
+          <article class="passage">
+            <header class="passage-head">
+              <h3 class="passage-ref">{{ passageLabel(p) }}</h3>
+              <span class="passage-page">صفحة {{ ar(p.page) }}</span>
+            </header>
+            <p class="passage-text">
+              @for (a of p.ayahs; track a.ayah) {
+                <span
+                  class="ayah"
+                  [class.active]="activeAyah() === key(a.surah, a.ayah)"
+                  role="button"
+                  tabindex="0"
+                  [attr.aria-label]="'تفسير الآية ' + ar(a.ayah)"
+                  (click)="onAyah(p, a)"
+                  (keydown.enter)="onAyah(p, a)"
+                  >{{ a.text }}&nbsp;<span class="end">۝{{ ar(a.ayah) }}</span></span
+                >
+                {{ ' ' }}
+              }
+            </p>
+            <div class="passage-actions">
+              <button type="button" class="act" (click)="openInMushaf(p)">
+                <app-icon name="quran" [size]="16" [stroke]="1.9" />
+                <span>في المصحف</span>
+              </button>
+              <button
+                type="button"
+                class="act"
+                [class.on]="isTafsirOpen(p)"
+                [attr.aria-expanded]="isTafsirOpen(p)"
+                (click)="toggleTafsir(p)"
+              >
+                <app-icon name="note" [size]="16" [stroke]="1.9" />
+                <span>التفسير</span>
+                <app-icon
+                  [name]="isTafsirOpen(p) ? 'chevronUp' : 'chevronDown'"
+                  [size]="14"
+                  [stroke]="2.2"
+                />
+              </button>
+            </div>
+            @if (isTafsirOpen(p)) {
+              <div class="tafsir">
+                <span class="tafsir-label">التفسير الميسر</span>
+                @for (a of p.ayahs; track a.ayah) {
+                  <p
+                    class="tafsir-item"
+                    [class.active]="activeAyah() === key(a.surah, a.ayah)"
+                    [attr.data-tafsir]="key(a.surah, a.ayah)"
+                  >
+                    @if (p.ayahs.length > 1) {
+                      <span class="tafsir-no">{{ ar(a.ayah) }}</span>
+                    }
+                    @if (tafsirOf(a); as text) {
+                      {{ text }}
+                    } @else {
+                      <span class="muted">جارٍ التحميل…</span>
+                    }
+                  </p>
+                }
+              </div>
+            }
+          </article>
+        }
       }
+
       <button type="button" class="add-ayahs" (click)="gatherMore()">
         <app-icon name="plus" [size]="15" [stroke]="2.3" />
         <span>إضافة آيات من المصحف</span>
       </button>
     </section>
 
-    <section class="reflect" aria-label="تأمّلك">
-      <h2 class="label">تأمّلك</h2>
+    <section class="reflect" aria-labelledby="reflect-title">
+      <div class="section-head">
+        <h2 id="reflect-title" class="label">تأمّلك</h2>
+        <span class="save-state" [class.saved]="saveState() === 'saved'" aria-live="polite">
+          @switch (saveState()) {
+            @case ('saving') {
+              جارٍ الحفظ…
+            }
+            @case ('saved') {
+              <app-icon name="check" [size]="13" [stroke]="2.6" /> حُفظ
+            }
+            @default {
+              يُحفظ تلقائيًا
+            }
+          }
+        </span>
+      </div>
       <textarea
         #noteField
         class="note"
@@ -160,13 +252,18 @@
           <button type="button" class="prompt" (click)="addPrompt(p)">{{ p }}</button>
         }
       </div>
-      <p class="saved">يُحفظ تلقائيًا</p>
     </section>
 
-    <button type="button" class="delete" (click)="deleteCard()">
-      <app-icon name="trash" [size]="16" [stroke]="1.9" />
-      <span>حذف البطاقة</span>
-    </button>
+    <footer class="foot">
+      <button type="button" class="foot-btn" (click)="share()">
+        <app-icon name="share" [size]="17" [stroke]="1.9" />
+        <span>مشاركة البطاقة</span>
+      </button>
+      <button type="button" class="foot-btn danger" (click)="deleteCard()">
+        <app-icon name="trash" [size]="17" [stroke]="1.9" />
+        <span>حذف</span>
+      </button>
+    </footer>
   } @else {
     <div class="missing">
       <p>هذه البطاقة غير موجودة، ربما حُذفت.</p>
@@ -174,3 +271,7 @@
     </div>
   }
 </div>
+
+@if (flash(); as f) {
+  <div class="flash" role="status">{{ f }}</div>
+}

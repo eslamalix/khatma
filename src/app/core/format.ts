@@ -31,6 +31,11 @@ export function counted(n: number, [one, two, few, many]: Forms): string {
   return `${ar(n)} ${mod >= 3 && mod <= 10 ? few : many}`;
 }
 
+/** Same, after a preposition ("في يومين", "في سورتين"): the dual takes its genitive ending. */
+export function countedGenitive(n: number, forms: Forms): string {
+  return n === 2 ? forms[1].replace(/ان$/, 'ين') : counted(n, forms);
+}
+
 export const HOURS: Forms = ['ساعة', 'ساعتان', 'ساعات', 'ساعة'];
 export const MINUTES: Forms = ['دقيقة', 'دقيقتان', 'دقائق', 'دقيقة'];
 export const DAYS: Forms = ['يوم', 'يومان', 'أيام', 'يوماً'];

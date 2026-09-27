@@ -13,6 +13,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ar, AYAHS, counted, dayMonth } from '../../core/format';
 import { surahName } from '../../core/quran/quran-meta';
 import { TafsirService } from '../../core/quran/tafsir.service';
@@ -47,6 +48,7 @@ export const labelOf = (r: Pick<Reflection, 'title' | 'ayahs'>) => cardLabel(r, 
 export class ReflectionSheet {
   protected readonly store = inject(TadabburStore);
   private readonly tafsirService = inject(TafsirService);
+  private readonly router = inject(Router);
 
   readonly open = input(false);
   readonly reflectionId = input<string | null>(null);
@@ -203,6 +205,13 @@ export class ReflectionSheet {
     const removed = id ? this.store.remove(id) : null;
     if (removed) this.removed.emit(removed);
     this.closed.emit();
+  }
+
+  /** The card on its own page, for reading it through with each passage's tafsir. */
+  protected openPage() {
+    const id = this.reflectionId();
+    this.close();
+    if (id) void this.router.navigate(['/tadabbur', id]);
   }
 
   protected gatherMore() {

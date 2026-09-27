@@ -43,8 +43,8 @@ export class MushafPage {
   readonly fontScale = input(1);
   readonly selectedRange = input<{ surah: number; startAyah: number; endAyah: number } | null>(null);
   readonly playingAyah = input<{ surah: number; ayah: number } | null>(null);
-  /** An ayah the reader was sent to (from a tadabbur card): lit and scrolled into view. */
-  readonly focusAyah = input<{ surah: number; ayah: number } | null>(null);
+  /** Ayahs the reader was sent to (a passage on a tadabbur card): lit and scrolled into view. */
+  readonly focusAyahs = input<{ surah: number; from: number; to: number } | null>(null);
   /** Ayahs the reader marked while reflecting (keyed `surah:ayah`). */
   readonly marks = input<ReadonlyMap<string, AyahMark> | null>(null);
   /** Tadabbur mode: marks are drawn as coloured bands; otherwise only their ornament is tinted. */
@@ -84,8 +84,8 @@ export class MushafPage {
   }
 
   protected isAyahFocused(a: QuranAyah): boolean {
-    const f = this.focusAyah();
-    return !!f && f.surah === a.surah && f.ayah === a.ayah;
+    const f = this.focusAyahs();
+    return !!f && f.surah === a.surah && a.ayah >= f.from && a.ayah <= f.to;
   }
 
   protected selectAyah(a: QuranAyah, event: MouseEvent) {
@@ -123,7 +123,7 @@ export class MushafPage {
     });
 
     effect(() => {
-      if (!this.focusAyah() || !this.data()) return;
+      if (!this.focusAyahs() || !this.data()) return;
       // After the text has been fitted, so the ayah is scrolled to where it finally sits.
       setTimeout(() => {
         const el = this.host.nativeElement.querySelector<HTMLElement>('.ayah-unit.focused');

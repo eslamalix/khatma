@@ -4,10 +4,10 @@
   padding: max(14px, env(safe-area-inset-top)) 20px calc(var(--tabbar-h) + 36px);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
   @media (min-width: 768px) {
     padding: 28px 48px 48px;
-    gap: 24px;
+    gap: 26px;
   }
 }
 
@@ -37,13 +37,23 @@
   }
 }
 
+/* Head: the name, a line about it, and its themes. */
 .head {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .title {
-  width: 100%;
+  /* As wide as its text, so the pencil sits right after it. */
+  flex: 0 1 auto;
+  field-sizing: content;
+  min-width: 4ch;
+  max-width: 100%;
   padding: 0;
   border: 0;
   background: none;
@@ -53,12 +63,32 @@
   font-weight: 700;
   letter-spacing: -0.3px;
   outline: none;
+  text-overflow: ellipsis;
   &::placeholder {
     color: var(--ink);
     opacity: 1;
   }
   &:focus::placeholder {
     color: var(--ink-3);
+  }
+  &:focus + .title-edit {
+    opacity: 0;
+  }
+}
+.title-edit {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 17px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+  transition: opacity 0.15s;
+  @media (hover: hover) {
+    &:hover {
+      background: var(--fill);
+      color: var(--ink-2);
+    }
   }
 }
 .meta {
@@ -76,10 +106,10 @@
   --c: var(--accent);
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  height: 34px;
-  padding: 0 13px;
-  border-radius: 17px;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 16px;
   font-size: 13.5px;
   font-weight: 600;
   background: var(--fill);
@@ -101,19 +131,32 @@
     background: var(--c);
     color: var(--on-t);
   }
+  &.tag {
+    background: color-mix(in srgb, var(--c) 15%, transparent);
+    color: var(--c);
+  }
+  &.edit,
   &.add {
     color: var(--ink-2);
     background: transparent;
     border: 1px dashed color-mix(in srgb, var(--ink-3) 45%, transparent);
   }
 }
-
-.new-theme {
+.picker {
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 12px;
   border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+.new-theme {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
   background: var(--fill);
   input {
     height: 42px;
@@ -150,7 +193,7 @@
     transform: scale(0.92);
   }
 }
-.new-actions {
+.row-end {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
@@ -163,7 +206,7 @@
   justify-content: center;
   gap: 6px;
   height: 38px;
-  padding: 0 16px;
+  padding: 0 18px;
   border-radius: 12px;
   font-size: 14px;
   font-weight: 600;
@@ -182,17 +225,48 @@
   }
 }
 
-/* Ayahs: each on its own sheet of mushaf paper, with its two actions under it. */
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.label {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+.link {
+  height: 32px;
+  padding: 0 10px;
+  margin-inline-end: -10px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  @media (hover: hover) {
+    &:hover {
+      background: var(--accent-soft);
+    }
+  }
+}
+.hint {
+  margin: -4px 0 0;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+/* Passages: consecutive ayahs read as one text, like the mushaf, with their two ways further in. */
 .ayahs {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
-.ayah {
+.passage {
   position: relative;
   display: flex;
   flex-direction: column;
-  padding: 10px 18px 12px;
+  padding: 12px 18px 12px;
   padding-inline-start: 22px;
   border-radius: var(--radius-list);
   background: var(--card);
@@ -207,72 +281,71 @@
     background: var(--c);
   }
 }
-.ayah-head {
+.passage-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
+  gap: 8px;
 }
-.ayah-ref {
-  font-size: 13px;
+.passage-ref {
+  margin: 0;
+  font-size: 13.5px;
   font-weight: 700;
   color: var(--ink-2);
-  small {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--ink-3);
-  }
 }
-.remove {
-  width: 30px;
-  height: 30px;
-  margin-inline-end: -8px;
-  border-radius: 15px;
-  display: grid;
-  place-items: center;
+.passage-page {
+  font-size: 12px;
   color: var(--ink-3);
-  @media (hover: hover) {
-    &:hover {
-      color: var(--t-red);
-      background: var(--fill);
-    }
-  }
+  white-space: nowrap;
 }
-.ayah-text {
-  margin: 2px 0 8px;
+.passage-text {
+  margin: 4px 0 10px;
   font-family: var(--font-quran);
   font-size: 22px;
-  line-height: 2.2;
+  line-height: 2.25;
   color: var(--q-ink, var(--ink));
   text-align: justify;
+}
+.ayah {
+  cursor: pointer;
+  border-radius: 8px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.18s var(--ease);
+  @media (hover: hover) {
+    &:hover {
+      background: color-mix(in srgb, var(--accent) 7%, transparent);
+    }
+  }
+  &.active {
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+  }
   .end {
     color: var(--q-gold, var(--accent));
     font-size: 1.1em;
     white-space: nowrap;
   }
 }
-.ayah-actions {
+.passage-actions {
   display: flex;
-  gap: 8px;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
+  gap: 6px;
+  margin-inline-start: -8px;
 }
 .act {
-  flex: 1;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 6px;
-  height: 40px;
+  height: 36px;
   padding: 0 12px;
-  border-radius: 12px;
-  font-size: 14px;
+  border-radius: 18px;
+  font-size: 13.5px;
   font-weight: 600;
-  color: var(--ink);
-  background: var(--fill);
+  color: var(--ink-2);
+  white-space: nowrap;
   transition:
     background 0.18s var(--ease),
-    transform 0.15s var(--ease);
-  white-space: nowrap;
+    color 0.18s var(--ease);
   &:active {
     transform: scale(0.97);
   }
@@ -282,36 +355,108 @@
   }
   @media (hover: hover) {
     &:not(.on):hover {
-      background: var(--track);
+      color: var(--ink);
+      background: var(--fill);
     }
   }
 }
 .tafsir {
-  margin-top: 10px;
+  margin-top: 8px;
   padding: 12px 14px;
   border-radius: 14px;
   background: var(--fill);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   animation: open 0.22s var(--ease);
-  p {
-    margin: 4px 0 0;
-    font-size: 15px;
-    line-height: 2;
-    color: var(--ink);
-    &.muted {
-      color: var(--ink-3);
-    }
-  }
 }
 .tafsir-label {
   font-size: 12px;
   font-weight: 700;
   color: var(--accent);
 }
+.tafsir-item {
+  margin: 0;
+  padding: 2px 6px;
+  margin-inline: -6px;
+  border-radius: 10px;
+  font-size: 15px;
+  line-height: 2;
+  color: var(--ink);
+  scroll-margin-block: 90px;
+  transition: background 0.2s var(--ease);
+  &.active {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+  .muted {
+    color: var(--ink-3);
+  }
+}
+.tafsir-no {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 5px;
+  margin-inline-end: 6px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-soft);
+  vertical-align: 2px;
+}
 @keyframes open {
   from {
     opacity: 0;
     transform: translateY(-4px);
   }
+}
+
+/* Editing the ayahs: one compact row each, with a way to take it off. */
+.edit-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  border-radius: var(--radius-list);
+  background: var(--card);
+  border: 1px solid var(--line);
+  li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 52px;
+    padding-inline: 16px 8px;
+    & + li {
+      border-top: 1px solid var(--line);
+    }
+  }
+}
+.edit-ref {
+  flex: none;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.edit-text {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-quran);
+  font-size: 16px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.remove {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  color: var(--t-red);
+  background: color-mix(in srgb, var(--t-red) 10%, transparent);
 }
 
 .inline-undo {
@@ -345,15 +490,21 @@
   color: var(--accent);
 }
 
+/* The reader's own words. */
 .reflect {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
-.label {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 700;
+.save-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--ink-3);
+  &.saved {
+    color: var(--accent);
+  }
 }
 .note {
   width: 100%;
@@ -391,28 +542,56 @@
   color: var(--accent);
   background: var(--accent-soft);
 }
-.saved {
-  margin: 0;
-  font-size: 12px;
-  color: var(--ink-3);
-}
 
-.delete {
-  align-self: center;
+.foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.foot-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   height: 40px;
-  padding: 0 16px;
+  padding: 0 14px;
+  margin-inline: -14px;
   border-radius: 20px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--ink-3);
+  color: var(--ink-2);
   @media (hover: hover) {
     &:hover {
-      color: var(--t-red);
       background: var(--fill);
     }
+  }
+  &.danger {
+    color: var(--ink-3);
+    @media (hover: hover) {
+      &:hover {
+        color: var(--t-red);
+      }
+    }
+  }
+}
+
+.flash {
+  position: fixed;
+  z-index: 60;
+  left: 50%;
+  bottom: calc(var(--tabbar-h) + 16px);
+  transform: translateX(-50%);
+  padding: 10px 18px;
+  border-radius: 20px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  @media (min-width: 768px) {
+    bottom: 28px;
+    margin-inline-start: calc(var(--sidebar-w) / 2);
   }
 }
 

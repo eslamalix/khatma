@@ -13,6 +13,7 @@ import {
   AYAHS,
   CARDS,
   counted,
+  countedGenitive,
   DAYS,
   dayMonth,
   PAGES,
@@ -87,6 +88,19 @@ export class Tadabbur {
       for (const id of r.themes) map.set(id, (map.get(id) ?? 0) + 1);
     return map;
   });
+  /** Themes that hold cards (and the one being filtered by), for the filter row. */
+  protected readonly usedThemes = computed(() =>
+    this.store.themes().filter((t) => this.counts().get(t.id) || t.id === this.filter()),
+  );
+  /** Search earns its place once there are enough cards to look through. */
+  protected readonly showSearch = computed(
+    () => this.store.reflections().length >= 6 || !!this.query(),
+  );
+  protected readonly listCount = computed(() => counted(this.list().length, CARDS));
+  protected readonly statsLabel = computed(() => {
+    const ms = this.stats().todayMs;
+    return ms ? `اليوم ${shortDuration(ms)}` : 'الإحصائيات';
+  });
   protected readonly summary = computed(() => {
     const cards = this.store.reflections();
     if (!cards.length) return 'تتبّع مواضيع القرآن، ودوّن ما يفتحه الله عليك';
@@ -102,7 +116,7 @@ export class Tadabbur {
   protected readonly spreadLabel = computed(() => {
     const ayahs = uniqueAyahs(this.list());
     const surahs = new Set(ayahs.map((a) => a.surah)).size;
-    return `${counted(ayahs.length, AYAHS)} في ${counted(surahs, SURAHS)}`;
+    return `${counted(ayahs.length, AYAHS)} في ${countedGenitive(surahs, SURAHS)}`;
   });
   protected readonly mapTitle = computed(() => {
     const theme = this.activeTheme();
@@ -116,7 +130,7 @@ export class Tadabbur {
   protected readonly stats = this.store.stats;
   protected readonly duration = shortDuration;
   protected readonly pagesLabel = (n: number) => counted(n, PAGES);
-  protected readonly daysLabel = (n: number) => (n === 1 ? 'يوم واحد' : counted(n, DAYS));
+  protected readonly daysLabel = (n: number) => (n === 1 ? 'يوم واحد' : countedGenitive(n, DAYS));
   protected readonly week = computed(() => {
     const days = this.stats().week;
     const max = Math.max(1, ...days.map((d) => d.ms));

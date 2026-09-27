@@ -157,6 +157,29 @@ export function ayahsLabel(
   return rest > 0 ? `${parts.join('؛ ')} وغيرها` : parts.join('؛ ');
 }
 
+/** A run of consecutive ayahs of one surah on a card, read as one passage. */
+export interface Passage {
+  surah: number;
+  from: number;
+  to: number;
+  /** The mushaf page its first ayah is on. */
+  page: number;
+  ayahs: CardAyah[];
+}
+
+/** A card's ayahs as passages: consecutive ayahs of a surah run together, in mushaf order. */
+export function passagesOf(ayahs: readonly CardAyah[]): Passage[] {
+  const out: Passage[] = [];
+  for (const a of [...ayahs].sort(byMushaf)) {
+    const last = out.at(-1);
+    if (last && last.surah === a.surah && last.to === a.ayah - 1) {
+      last.to = a.ayah;
+      last.ayahs.push(a);
+    } else out.push({ surah: a.surah, from: a.ayah, to: a.ayah, page: a.page, ayahs: [a] });
+  }
+  return out;
+}
+
 /** A card's name: the title the reader gave it, or where its ayahs are. */
 export const cardLabel = (
   r: Pick<Reflection, 'title' | 'ayahs'>,

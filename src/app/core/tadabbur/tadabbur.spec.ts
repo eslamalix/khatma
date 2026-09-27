@@ -10,6 +10,7 @@ import {
   mergeDays,
   mergeTadabbur,
   normalizeArabic,
+  passagesOf,
   Reflection,
   reflectionsAsText,
   TadabburData,
@@ -97,6 +98,29 @@ describe('tadabbur cards', () => {
       createdAt: 1,
       updatedAt: 2,
     });
+  });
+});
+
+describe('tadabbur passages', () => {
+  it('runs consecutive ayahs of a surah together, in mushaf order', () => {
+    const p = passagesOf([
+      ay(2, 7, 'c', 3),
+      ay(2, 5, 'a', 2),
+      ay(2, 6, 'b', 2),
+      ay(2, 9),
+      ay(3, 1),
+    ]);
+    expect(p.map((x) => [x.surah, x.from, x.to, x.page])).toEqual([
+      [2, 5, 7, 2],
+      [2, 9, 9, 2],
+      [3, 1, 1, 2],
+    ]);
+    expect(p[0].ayahs.map((a) => a.text)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('keeps the last ayah of one surah apart from the first of the next', () => {
+    expect(passagesOf([ay(1, 7), ay(2, 1)])).toHaveLength(2);
+    expect(passagesOf([])).toEqual([]);
   });
 });
 

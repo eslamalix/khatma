@@ -108,8 +108,8 @@ export class QuranReader {
   protected readonly height = signal(0);
   /** Page under the viewport right now (follows the finger). */
   readonly visiblePage = signal(1);
-  /** The ayah a tadabbur card sent the reader to, lit until the reader taps the page. */
-  protected readonly focusAyah = signal<{ surah: number; ayah: number } | null>(null);
+  /** The passage a tadabbur card sent the reader to, lit until the reader taps the page. */
+  protected readonly focusAyahs = signal<{ surah: number; from: number; to: number } | null>(null);
   /** The card the reader came from, offered as a way back. */
   protected readonly returnCard = signal<string | null>(null);
   protected readonly returnLabel = computed(() => {
@@ -287,13 +287,13 @@ export class QuranReader {
       this.timer.setTarget(tadabbur ? 'tadabbur' : 'khatma');
       this.mode = tadabbur;
       const home = tadabbur ? (this.tadabbur.lastPage() ?? this.store.state().lastPage) : this.store.state().lastPage;
-      // `/quran?page=N&ayah=S:A&card=ID` (from a tadabbur card) opens that page once with the ayah lit
-      // and a way back to the card; then the URL is tidied.
+      // `/quran?page=N&ayah=S:A[-B]&card=ID` (from a tadabbur card) opens that page once with the
+      // passage lit and a way back to the card; then the URL is tidied.
       const params = this.route.snapshot.queryParamMap;
       const asked = Number(params.get('page'));
       const start = this.normalize(asked >= 1 ? asked : home);
-      const [surah, ayah] = (params.get('ayah') ?? '').split(':').map(Number);
-      if (surah > 0 && ayah > 0) this.focusAyah.set({ surah, ayah });
+      const [, surah, from, to] = (params.get('ayah') ?? '').match(/^(\d+):(\d+)(?:-(\d+))?$/) ?? [];
+      if (surah && from) this.focusAyahs.set({ surah: +surah, from: +from, to: +(to ?? from) });
       if (params.get('card') && this.tadabbur.get(params.get('card'))) this.returnCard.set(params.get('card'));
       if (params.keys.length) {
         void this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
@@ -429,7 +429,7 @@ export class QuranReader {
    */
   protected onAyahClicked(event: { ayah: QuranAyah; pageAyahs: QuranAyah[]; page: number }) {
     const { ayah, pageAyahs } = event;
-    this.focusAyah.set(null);
+    this.focusAyahs.set(null);
     if (this.tadabbur.active()) {
       this.tadabburTap(event);
       return;
@@ -668,7 +668,7 @@ export class QuranReader {
   /** Tapping the page outside an ayah clears the selection. */
   protected onTap() {
     this.selectedRange.set(null);
-    this.focusAyah.set(null);
+    this.focusAyahs.set(null);
   }
 
   protected backToCard() {

@@ -5,61 +5,67 @@
       <p class="page-subtitle">{{ summary() }}</p>
     </div>
     <!-- The numbers stay one tap away, so the page itself is about the ayahs. -->
-    <button
-      type="button"
-      class="stats-btn"
-      (click)="statsOpen.set(true)"
-      aria-label="إحصائيات التدبر"
-    >
-      <app-icon name="stats" [size]="17" [stroke]="2" />
-      <span>{{ stats().todayMs ? duration(stats().todayMs) : 'إحصائيات' }}</span>
+    <button type="button" class="stats-btn" (click)="statsOpen.set(true)">
+      <app-icon name="stats" [size]="16" [stroke]="2" />
+      <span>{{ statsLabel() }}</span>
     </button>
   </header>
 
-  <!-- The way in: straight to the mushaf, looking for the theme on screen. -->
-  <button type="button" class="start" (click)="startSession()">
-    <span class="start-icon" [style.--c]="spreadColor()"
-      ><app-icon name="lamp" [size]="22" [stroke]="1.9"
-    /></span>
+  <!-- The way in: straight to the mushaf. Explained in full only until the first card exists. -->
+  <button
+    type="button"
+    class="start"
+    [class.compact]="store.reflections().length"
+    (click)="startSession()"
+  >
+    <span class="start-icon"><app-icon name="lamp" [size]="21" [stroke]="1.9" /></span>
     <span class="start-text">
       <strong>ابدأ جلسة تدبّر</strong>
-      <small>اجمع آيات من المصحف، متتالية أو متفرقة، في بطاقة</small>
+      @if (!store.reflections().length) {
+        <small>اجمع آيات من المصحف، متتالية أو متفرقة، في بطاقة</small>
+      }
     </span>
     <app-icon name="chevronLeft" [size]="20" [stroke]="2" />
   </button>
 
-  <!-- Themes as filters, each with how many ayahs it holds. -->
-  <div class="filters" role="group" aria-label="المواضيع">
-    <button type="button" class="filter" [class.on]="filter() === null" (click)="filter.set(null)">
-      <span>الكل</span>
-      <span class="count">{{ ar(store.reflections().length) }}</span>
-    </button>
-    @for (t of store.themes(); track t.id) {
+  @if (store.reflections().length) {
+    <!-- Themes as filters: only those that hold cards, each with how many. -->
+    <div class="filters" role="group" aria-label="المواضيع">
       <button
         type="button"
         class="filter"
-        [class.on]="filter() === t.id"
-        [style.--c]="'var(--t-' + t.color + ')'"
-        [attr.aria-pressed]="filter() === t.id"
-        (click)="setFilter(t.id)"
+        [class.on]="filter() === null"
+        [attr.aria-pressed]="filter() === null"
+        (click)="filter.set(null)"
       >
-        <span class="dot"></span>
-        <span>{{ t.name }}</span>
-        <span class="count">{{ ar(counts().get(t.id) ?? 0) }}</span>
+        <span>الكل</span>
+        <span class="count">{{ ar(store.reflections().length) }}</span>
       </button>
-    }
-    <button
-      type="button"
-      class="filter edit"
-      (click)="manageOpen.set(true)"
-      aria-label="تعديل المواضيع"
-    >
-      <app-icon name="pencil" [size]="15" [stroke]="2" />
-    </button>
-  </div>
+      @for (t of usedThemes(); track t.id) {
+        <button
+          type="button"
+          class="filter"
+          [class.on]="filter() === t.id"
+          [style.--c]="'var(--t-' + t.color + ')'"
+          [attr.aria-pressed]="filter() === t.id"
+          (click)="setFilter(t.id)"
+        >
+          <span class="dot"></span>
+          <span>{{ t.name }}</span>
+          <span class="count">{{ ar(counts().get(t.id) ?? 0) }}</span>
+        </button>
+      }
+      <button
+        type="button"
+        class="filter edit"
+        (click)="manageOpen.set(true)"
+        aria-label="تعديل المواضيع"
+      >
+        <app-icon name="pencil" [size]="15" [stroke]="2" />
+      </button>
+    </div>
 
-  @if (store.reflections().length) {
-    <div class="tools">
+    @if (showSearch()) {
       <label class="search">
         <app-icon name="search" [size]="17" [stroke]="2" />
         <input
@@ -70,30 +76,27 @@
           aria-label="بحث"
         />
       </label>
-      <div class="segmented sort" role="group" aria-label="الترتيب">
-        <button
-          type="button"
-          [attr.aria-pressed]="sort() === 'mushaf'"
-          (click)="sort.set('mushaf')"
-        >
-          المصحف
-        </button>
-        <button
-          type="button"
-          [attr.aria-pressed]="sort() === 'recent'"
-          (click)="sort.set('recent')"
-        >
-          الأحدث
-        </button>
-      </div>
+    }
+
+    <div class="list-head">
+      <span class="list-count">{{ listCount() }}</span>
       <button
         type="button"
-        class="tool"
+        class="list-tool"
+        (click)="sort.set(sort() === 'mushaf' ? 'recent' : 'mushaf')"
+        [attr.aria-label]="'الترتيب: ' + (sort() === 'mushaf' ? 'بترتيب المصحف' : 'الأحدث أولًا')"
+      >
+        <app-icon name="sort" [size]="15" [stroke]="2" />
+        <span>{{ sort() === 'mushaf' ? 'بترتيب المصحف' : 'الأحدث أولًا' }}</span>
+      </button>
+      <button
+        type="button"
+        class="list-tool icon"
         (click)="copyList()"
         [disabled]="!list().length"
-        aria-label="نسخ القائمة"
+        aria-label="نسخ هذه البطاقات كنص"
       >
-        <app-icon name="copy" [size]="17" [stroke]="1.9" />
+        <app-icon name="copy" [size]="16" [stroke]="1.9" />
       </button>
     </div>
 
@@ -101,32 +104,22 @@
       @for (r of list(); track r.id) {
         <a class="card-item" [style.--c]="colorOf(r)" [routerLink]="['/tadabbur', r.id]">
           <header class="item-head">
-            <span class="ref">{{ labelOf(r) }}</span>
-            <span class="tags">
-              @for (t of themesOf(r); track t.id) {
-                <span class="tag" [style.--c]="'var(--t-' + t.color + ')'">{{ t.name }}</span>
-              }
-            </span>
+            <h2 class="item-title">{{ labelOf(r) }}</h2>
+            <app-icon name="chevronLeft" [size]="18" [stroke]="2" />
           </header>
-          @for (a of r.ayahs.slice(0, 2); track a.surah + ':' + a.ayah) {
-            <p class="ayah">
-              {{ a.text }}&nbsp;<span class="ayah-ref"
-                >{{ surahName(a.surah) }} {{ ar(a.ayah) }}</span
-              >
-            </p>
-          }
-          @if (r.ayahs.length > 2) {
-            <span class="more">و{{ ayahsCount(r.ayahs.length - 2) }} أخرى</span>
+          @if (r.ayahs[0]; as a) {
+            <p class="ayah">{{ a.text }}</p>
           }
           @if (r.note.trim()) {
             <p class="note">{{ r.note }}</p>
           }
           <footer class="item-foot">
-            <span>{{ ayahsCount(r.ayahs.length) }}، {{ dayMonth(r.createdAt) }}</span>
-            <span class="open">
-              <span>افتح البطاقة</span>
-              <app-icon name="chevronLeft" [size]="14" [stroke]="2.2" />
-            </span>
+            @for (t of themesOf(r); track t.id) {
+              <span class="tag" [style.--c]="'var(--t-' + t.color + ')'">{{ t.name }}</span>
+            }
+            <span class="item-meta"
+              >{{ ayahsCount(r.ayahs.length) }}، {{ dayMonth(r.createdAt) }}</span
+            >
           </footer>
         </a>
       } @empty {
