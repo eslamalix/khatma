@@ -170,12 +170,6 @@
         >
           <app-icon name="trash" [size]="19" [stroke]="1.9" />
         </button>
-        @if (showMushafLink()) {
-          <button type="button" class="ghost" (click)="goToMushaf()">
-            <app-icon name="quran" [size]="17" [stroke]="1.9" />
-            <span>في المصحف</span>
-          </button>
-        }
         <span class="spacer"></span>
         <button type="button" class="solid done" (click)="close()">تم</button>
       </footer>

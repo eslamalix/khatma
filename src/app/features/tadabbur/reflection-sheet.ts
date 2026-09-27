@@ -50,11 +50,8 @@ export class ReflectionSheet {
 
   readonly open = input(false);
   readonly reflectionId = input<string | null>(null);
-  /** From the journal: offer to open the ayahs in the mushaf. */
-  readonly showMushafLink = input(false);
   readonly closed = output<void>();
   readonly removed = output<{ reflection: Reflection; index: number }>();
-  readonly openInMushaf = output<Reflection>();
   readonly addAyahs = output<Reflection>();
 
   private readonly noteField = viewChild<ElementRef<HTMLTextAreaElement>>('noteField');
@@ -206,12 +203,6 @@ export class ReflectionSheet {
     const removed = id ? this.store.remove(id) : null;
     if (removed) this.removed.emit(removed);
     this.closed.emit();
-  }
-
-  protected goToMushaf() {
-    const r = this.card();
-    this.close();
-    if (r) this.openInMushaf.emit(r);
   }
 
   protected gatherMore() {

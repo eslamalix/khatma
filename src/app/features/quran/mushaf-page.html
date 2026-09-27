@@ -18,6 +18,7 @@
               [class.sel-first]="a.ayah === selectedRange()?.startAyah"
               [class.sel-last]="a.ayah === selectedRange()?.endAyah"
               [class.playing]="isAyahPlaying(a)"
+              [class.focused]="isAyahFocused(a)"
               [class.marked]="!!markOf(a)"
               [class.collected]="isCollected(a)"
               [class.mark-mode]="markMode()"

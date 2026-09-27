@@ -1,0 +1,176 @@
+<div class="page" [style.--c]="color()">
+  <nav class="bar">
+    <a class="back" routerLink="/tadabbur">
+      <app-icon name="chevronRight" [size]="20" [stroke]="2.2" />
+      <span>التدبّر</span>
+    </a>
+  </nav>
+
+  @if (card(); as r) {
+    <header class="head">
+      <input
+        class="title"
+        type="text"
+        [value]="title()"
+        (input)="onTitle(titleField.value)"
+        #titleField
+        maxlength="60"
+        [placeholder]="placeholder()"
+        aria-label="عنوان البطاقة"
+      />
+      <p class="meta">{{ meta() }}</p>
+
+      <div class="themes" role="group" aria-label="مواضيع البطاقة">
+        @for (t of store.themes(); track t.id) {
+          <button
+            type="button"
+            class="theme"
+            [class.on]="hasTheme(t.id)"
+            [style.--c]="'var(--t-' + t.color + ')'"
+            [attr.aria-pressed]="hasTheme(t.id)"
+            (click)="toggleTheme(t.id)"
+          >
+            @if (hasTheme(t.id)) {
+              <app-icon name="check" [size]="13" [stroke]="2.6" />
+            } @else {
+              <span class="dot"></span>
+            }
+            <span>{{ t.name }}</span>
+          </button>
+        }
+        @if (!adding()) {
+          <button type="button" class="theme add" (click)="startNewTheme()">
+            <app-icon name="plus" [size]="13" [stroke]="2.4" />
+            <span>موضوع جديد</span>
+          </button>
+        }
+      </div>
+      @if (adding()) {
+        <form class="new-theme" (submit)="$event.preventDefault(); confirmNewTheme()">
+          <input
+            type="text"
+            name="newName"
+            [(ngModel)]="newName"
+            placeholder="مثل: الجنة، الصبر، الأنبياء"
+            maxlength="30"
+            aria-label="اسم الموضوع"
+            autocomplete="off"
+          />
+          <div class="palette" role="radiogroup" aria-label="لون الموضوع">
+            @for (c of colors; track c) {
+              <button
+                type="button"
+                class="swatch"
+                [class.on]="newColor() === c"
+                [style.--c]="'var(--t-' + c + ')'"
+                role="radio"
+                [attr.aria-checked]="newColor() === c"
+                [attr.aria-label]="c"
+                (click)="newColor.set(c)"
+              ></button>
+            }
+          </div>
+          <div class="new-actions">
+            <button type="button" class="ghost" (click)="adding.set(false)">إلغاء</button>
+            <button type="submit" class="solid" [disabled]="!newName.trim()">إضافة</button>
+          </div>
+        </form>
+      }
+    </header>
+
+    <!-- The ayahs, one under the other; each opens where it sits in the mushaf, or its tafsir. -->
+    <section class="ayahs" aria-label="الآيات">
+      @if (undoAyah(); as u) {
+        <div class="inline-undo" role="status">
+          <span>أُزيلت {{ surahName(u.surah) }} {{ ar(u.ayah) }}</span>
+          <button type="button" (click)="restoreAyah()">تراجع</button>
+        </div>
+      }
+      @for (a of r.ayahs; track key(a.surah, a.ayah)) {
+        <article class="ayah">
+          <header class="ayah-head">
+            <span class="ayah-ref"
+              >{{ surahName(a.surah) }}، الآية {{ ar(a.ayah)
+              }}<small>، صفحة {{ ar(a.page) }}</small></span
+            >
+            <button
+              type="button"
+              class="remove"
+              (click)="removeAyah(a)"
+              [attr.aria-label]="'إزالة ' + surahName(a.surah) + ' ' + ar(a.ayah) + ' من البطاقة'"
+            >
+              <app-icon name="close" [size]="14" [stroke]="2.3" />
+            </button>
+          </header>
+          <p class="ayah-text">
+            {{ a.text }}&nbsp;<span class="end">۝{{ ar(a.ayah) }}</span>
+          </p>
+          <div class="ayah-actions">
+            <button type="button" class="act" (click)="openInMushaf(a)">
+              <app-icon name="quran" [size]="16" [stroke]="1.9" />
+              <span>في المصحف</span>
+            </button>
+            <button
+              type="button"
+              class="act"
+              [class.on]="isTafsirOpen(a)"
+              [attr.aria-expanded]="isTafsirOpen(a)"
+              (click)="toggleTafsir(a)"
+            >
+              <app-icon name="note" [size]="16" [stroke]="1.9" />
+              <span>التفسير</span>
+              <app-icon
+                [name]="isTafsirOpen(a) ? 'chevronUp' : 'chevronDown'"
+                [size]="14"
+                [stroke]="2.2"
+              />
+            </button>
+          </div>
+          @if (isTafsirOpen(a)) {
+            <div class="tafsir">
+              <span class="tafsir-label">التفسير الميسر</span>
+              @if (tafsirOf(a); as text) {
+                <p>{{ text }}</p>
+              } @else {
+                <p class="muted">جارٍ التحميل…</p>
+              }
+            </div>
+          }
+        </article>
+      }
+      <button type="button" class="add-ayahs" (click)="gatherMore()">
+        <app-icon name="plus" [size]="15" [stroke]="2.3" />
+        <span>إضافة آيات من المصحف</span>
+      </button>
+    </section>
+
+    <section class="reflect" aria-label="تأمّلك">
+      <h2 class="label">تأمّلك</h2>
+      <textarea
+        #noteField
+        class="note"
+        [value]="note()"
+        (input)="onNote(noteField.value)"
+        rows="5"
+        placeholder="ماذا وقع في قلبك؟ ماذا فهمت، وبماذا ستعمل؟"
+        aria-label="تأملك"
+      ></textarea>
+      <div class="prompts" aria-label="أسئلة تعين على التدبر">
+        @for (p of prompts; track p) {
+          <button type="button" class="prompt" (click)="addPrompt(p)">{{ p }}</button>
+        }
+      </div>
+      <p class="saved">يُحفظ تلقائيًا</p>
+    </section>
+
+    <button type="button" class="delete" (click)="deleteCard()">
+      <app-icon name="trash" [size]="16" [stroke]="1.9" />
+      <span>حذف البطاقة</span>
+    </button>
+  } @else {
+    <div class="missing">
+      <p>هذه البطاقة غير موجودة، ربما حُذفت.</p>
+      <a class="solid" routerLink="/tadabbur">إلى التدبّر</a>
+    </div>
+  }
+</div>

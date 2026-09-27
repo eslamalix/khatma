@@ -7,7 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import {
   ar,
   AYAHS,
@@ -34,11 +34,12 @@ import {
 import { TadabburStore } from '../../core/tadabbur/tadabbur.store';
 import { Icon } from '../../ui/icon';
 import { Sheet } from '../../ui/sheet';
-import { labelOf, ReflectionSheet } from './reflection-sheet';
+import { labelOf } from './reflection-sheet';
 
 /**
  * دفتر التدبر: every card the reader made, by theme. Pick "العذاب" and those cards sit together in
- * mushaf order, with the reader's notes under their ayahs and a map of where the ayahs fall.
+ * mushaf order, with the reader's notes under their ayahs. Each card opens on its own page; the numbers
+ * (time spent, where the ayahs fall) wait behind a button so the page stays on the ayahs.
  */
 const weekday = new Intl.DateTimeFormat('ar-EG', { weekday: 'narrow' });
 const weekdayLong = new Intl.DateTimeFormat('ar-EG', {
@@ -49,7 +50,7 @@ const weekdayLong = new Intl.DateTimeFormat('ar-EG', {
 
 @Component({
   selector: 'app-tadabbur',
-  imports: [Icon, Sheet, FormsModule, ReflectionSheet],
+  imports: [Icon, Sheet, FormsModule, RouterLink],
   templateUrl: './tadabbur.html',
   styleUrl: './tadabbur.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -103,6 +104,10 @@ export class Tadabbur {
     const surahs = new Set(ayahs.map((a) => a.surah)).size;
     return `${counted(ayahs.length, AYAHS)} في ${counted(surahs, SURAHS)}`;
   });
+  protected readonly mapTitle = computed(() => {
+    const theme = this.activeTheme();
+    return theme ? `مواضع آيات «${theme.name}» في المصحف` : 'مواضع الآيات في المصحف';
+  });
   protected readonly spreadColor = computed(
     () => `var(--t-${this.activeTheme()?.color ?? 'green'})`,
   );
@@ -123,9 +128,7 @@ export class Tadabbur {
     }));
   });
 
-  // The reflection card.
-  protected readonly cardOpen = signal(false);
-  protected readonly cardId = signal<string | null>(null);
+  protected readonly statsOpen = signal(false);
 
   // Managing themes.
   protected readonly manageOpen = signal(false);
@@ -137,6 +140,11 @@ export class Tadabbur {
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.toastTimer && clearTimeout(this.toastTimer));
+    // A card deleted on its own page comes back here, with a way to undo.
+    const removed = this.router.currentNavigation()?.extras.state?.['removed'] as
+      | { reflection: Reflection; index: number }
+      | undefined;
+    if (removed?.reflection) this.onRemoved(removed);
   }
 
   protected themesOf(r: Reflection): TadabburTheme[] {
@@ -152,22 +160,6 @@ export class Tadabbur {
 
   protected setFilter(id: string | null) {
     this.filter.set(this.filter() === id ? null : id);
-  }
-
-  protected openCard(r: Reflection) {
-    this.cardId.set(r.id);
-    this.cardOpen.set(true);
-  }
-
-  protected goToMushaf(r: Reflection) {
-    this.store.setActive(true);
-    void this.router.navigate(['/quran'], { queryParams: { page: r.ayahs[0]?.page ?? 1 } });
-  }
-
-  /** "إضافة آيات" on a card: to the mushaf, where its last ayah is, gathering for that card. */
-  protected addAyahs(r: Reflection) {
-    this.store.addTo(r.id);
-    void this.router.navigate(['/quran'], { queryParams: { page: r.ayahs.at(-1)?.page ?? 1 } });
   }
 
   /** "Start": straight into the mushaf in tadabbur mode. */
@@ -187,7 +179,7 @@ export class Tadabbur {
     }
   }
 
-  protected onRemoved({ reflection, index }: { reflection: Reflection; index: number }) {
+  private onRemoved({ reflection, index }: { reflection: Reflection; index: number }) {
     this.showToast({
       label: `حُذفت «${labelOf(reflection)}»`,
       run: () => this.store.restore(reflection, index),

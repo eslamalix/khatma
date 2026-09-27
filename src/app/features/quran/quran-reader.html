@@ -67,6 +67,7 @@
             [fontScale]="scale()"
             [selectedRange]="selectedRange()"
             [playingAyah]="audio.current()"
+            [focusAyah]="focusAyah()"
             [marks]="tadabbur.marks()"
             [markMode]="tadabbur.active()"
             [collected]="tadabbur.collectedKeys()"
@@ -76,6 +77,19 @@
     }
   </div>
 </div>
+
+@if (returnCard()) {
+  <!-- Came from a tadabbur card: one tap back to it. -->
+  <div class="return-pill">
+    <button type="button" class="return-main" (click)="backToCard()">
+      <app-icon name="chevronRight" [size]="17" [stroke]="2.2" />
+      <span>العودة إلى <b>{{ returnLabel() }}</b></span>
+    </button>
+    <button type="button" class="return-close" (click)="returnCard.set(null)" aria-label="إخفاء">
+      <app-icon name="close" [size]="14" [stroke]="2.3" />
+    </button>
+  </div>
+}
 
 <button type="button" class="side prev" (click)="go(-1)" [disabled]="visiblePage() <= 1" aria-label="الصفحة السابقة">
   <app-icon name="chevronRight" [size]="24" [stroke]="2" />

@@ -1,0 +1,430 @@
+.page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: max(14px, env(safe-area-inset-top)) 20px calc(var(--tabbar-h) + 36px);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  @media (min-width: 768px) {
+    padding: 28px 48px 48px;
+    gap: 24px;
+  }
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  @media (max-width: 767px) {
+    padding-inline-end: 48px;
+  }
+}
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 36px;
+  padding: 0 10px 0 14px;
+  margin-inline-start: -10px;
+  border-radius: 18px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  @media (hover: hover) {
+    &:hover {
+      background: var(--accent-soft);
+    }
+  }
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.title {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  outline: none;
+  &::placeholder {
+    color: var(--ink);
+    opacity: 1;
+  }
+  &:focus::placeholder {
+    color: var(--ink-3);
+  }
+}
+.meta {
+  margin: -6px 0 0;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+.themes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.theme {
+  --c: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 13px;
+  border-radius: 17px;
+  font-size: 13.5px;
+  font-weight: 600;
+  background: var(--fill);
+  color: var(--ink);
+  transition:
+    background 0.18s var(--ease),
+    color 0.18s var(--ease),
+    transform 0.15s var(--ease);
+  &:active {
+    transform: scale(0.95);
+  }
+  .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--c);
+  }
+  &.on {
+    background: var(--c);
+    color: var(--on-t);
+  }
+  &.add {
+    color: var(--ink-2);
+    background: transparent;
+    border: 1px dashed color-mix(in srgb, var(--ink-3) 45%, transparent);
+  }
+}
+
+.new-theme {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--fill);
+  input {
+    height: 42px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--card);
+    color: var(--ink);
+    font: inherit;
+    font-size: 14.5px;
+    outline: none;
+    &:focus {
+      border-color: var(--accent);
+    }
+  }
+}
+.palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.swatch {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--c);
+  transition:
+    transform 0.15s var(--ease),
+    box-shadow 0.15s;
+  &.on {
+    box-shadow:
+      0 0 0 2px var(--card),
+      0 0 0 4px var(--c);
+    transform: scale(0.92);
+  }
+}
+.new-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ghost,
+.solid {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.ghost {
+  background: var(--card);
+  color: var(--ink);
+}
+.solid {
+  background: var(--accent);
+  color: var(--on-accent);
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+
+/* Ayahs: each on its own sheet of mushaf paper, with its two actions under it. */
+.ayahs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ayah {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 18px 12px;
+  padding-inline-start: 22px;
+  border-radius: var(--radius-list);
+  background: var(--card);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  &::before {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: 4px;
+    background: var(--c);
+  }
+}
+.ayah-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ayah-ref {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+  small {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-3);
+  }
+}
+.remove {
+  width: 30px;
+  height: 30px;
+  margin-inline-end: -8px;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+  @media (hover: hover) {
+    &:hover {
+      color: var(--t-red);
+      background: var(--fill);
+    }
+  }
+}
+.ayah-text {
+  margin: 2px 0 8px;
+  font-family: var(--font-quran);
+  font-size: 22px;
+  line-height: 2.2;
+  color: var(--q-ink, var(--ink));
+  text-align: justify;
+  .end {
+    color: var(--q-gold, var(--accent));
+    font-size: 1.1em;
+    white-space: nowrap;
+  }
+}
+.ayah-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.act {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--fill);
+  transition:
+    background 0.18s var(--ease),
+    transform 0.15s var(--ease);
+  white-space: nowrap;
+  &:active {
+    transform: scale(0.97);
+  }
+  &.on {
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+  @media (hover: hover) {
+    &:not(.on):hover {
+      background: var(--track);
+    }
+  }
+}
+.tafsir {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--fill);
+  animation: open 0.22s var(--ease);
+  p {
+    margin: 4px 0 0;
+    font-size: 15px;
+    line-height: 2;
+    color: var(--ink);
+    &.muted {
+      color: var(--ink-3);
+    }
+  }
+}
+.tafsir-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+}
+@keyframes open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.inline-undo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 14px 6px;
+  min-height: 44px;
+  border-radius: 14px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 14px;
+  button {
+    height: 34px;
+    padding: 0 12px;
+    border-radius: 10px;
+    font-weight: 700;
+    color: color-mix(in srgb, var(--accent) 60%, var(--bg));
+  }
+}
+.add-ayahs {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 46px;
+  border-radius: 14px;
+  border: 1px dashed color-mix(in srgb, var(--ink-3) 45%, transparent);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.reflect {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.label {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+.note {
+  width: 100%;
+  min-height: 140px;
+  field-sizing: content;
+  resize: none;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.95;
+  outline: none;
+  transition: border-color 0.2s;
+  &:focus {
+    border-color: var(--accent);
+  }
+  &::placeholder {
+    color: var(--ink-3);
+  }
+}
+.prompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.prompt {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.saved {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.delete {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-3);
+  @media (hover: hover) {
+    &:hover {
+      color: var(--t-red);
+      background: var(--fill);
+    }
+  }
+}
+
+.missing {
+  margin: 48px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: var(--ink-3);
+  font-size: 15px;
+  p {
+    margin: 0;
+  }
+}

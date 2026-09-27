@@ -1,7 +1,19 @@
 <div class="page">
   <header class="page-header">
-    <h1 class="page-title">التدبّر</h1>
-    <p class="page-subtitle">{{ summary() }}</p>
+    <div class="page-heading">
+      <h1 class="page-title">التدبّر</h1>
+      <p class="page-subtitle">{{ summary() }}</p>
+    </div>
+    <!-- The numbers stay one tap away, so the page itself is about the ayahs. -->
+    <button
+      type="button"
+      class="stats-btn"
+      (click)="statsOpen.set(true)"
+      aria-label="إحصائيات التدبر"
+    >
+      <app-icon name="stats" [size]="17" [stroke]="2" />
+      <span>{{ stats().todayMs ? duration(stats().todayMs) : 'إحصائيات' }}</span>
+    </button>
   </header>
 
   <!-- The way in: straight to the mushaf, looking for the theme on screen. -->
@@ -15,41 +27,6 @@
     </span>
     <app-icon name="chevronLeft" [size]="20" [stroke]="2" />
   </button>
-
-  <!-- Tadabbur reading has its own numbers; none of it counts toward the khatma. -->
-  <section class="reading" aria-label="قراءة التدبر">
-    <div class="tiles">
-      <div class="tile">
-        <span class="tile-label">اليوم</span>
-        <span class="tile-value">{{ duration(stats().todayMs) }}</span>
-        @if (stats().todayPages) {
-          <span class="tile-sub">{{ pagesLabel(stats().todayPages) }}</span>
-        }
-      </div>
-      <div class="tile">
-        <span class="tile-label">هذا الأسبوع</span>
-        <span class="tile-value">{{ duration(stats().weekMs) }}</span>
-      </div>
-      <div class="tile">
-        <span class="tile-label">الإجمالي</span>
-        <span class="tile-value">{{ duration(stats().totalMs) }}</span>
-        @if (stats().days) {
-          <span class="tile-sub"
-            >{{ pagesLabel(stats().pages) }} في {{ daysLabel(stats().days) }}</span
-          >
-        }
-      </div>
-    </div>
-    <div class="week" role="img" [attr.aria-label]="'وقت التدبر في آخر سبعة أيام'">
-      @for (d of week(); track d.date) {
-        <div class="day" [class.today]="d.today" [attr.title]="d.tip">
-          <span class="bar-slot"><span class="bar" [style.height.%]="d.height"></span></span>
-          <span class="day-label">{{ d.label }}</span>
-        </div>
-      }
-    </div>
-    <p class="apart">وقت التدبر منفصل عن الختمة ولا يُحسب فيها.</p>
-  </section>
 
   <!-- Themes as filters, each with how many ayahs it holds. -->
   <div class="filters" role="group" aria-label="المواضيع">
@@ -82,27 +59,6 @@
   </div>
 
   @if (store.reflections().length) {
-    <!-- Where these ayahs fall in the mushaf, juz by juz. -->
-    @if (list().length) {
-      <section class="map" [style.--c]="spreadColor()" aria-label="مواضعها في المصحف">
-        <div class="map-head">
-          <span class="map-title">مواضعها في المصحف</span>
-          <span class="map-meta">{{ spreadLabel() }}</span>
-        </div>
-        <div class="map-cells">
-          @for (cell of spread(); track cell.juz) {
-            <span
-              class="cell"
-              [class.empty]="!cell.n"
-              [style.--level]="cell.level"
-              [attr.title]="'الجزء ' + ar(cell.juz) + (cell.n ? '، ' + ar(cell.n) : '')"
-            ></span>
-          }
-        </div>
-        <div class="map-scale"><span>الجزء ١</span><span>١٥</span><span>٣٠</span></div>
-      </section>
-    }
-
     <div class="tools">
       <label class="search">
         <app-icon name="search" [size]="17" [stroke]="2" />
@@ -143,15 +99,7 @@
 
     <div class="cards">
       @for (r of list(); track r.id) {
-        <article
-          class="card-item"
-          [style.--c]="colorOf(r)"
-          (click)="openCard(r)"
-          (keydown.enter)="openCard(r)"
-          tabindex="0"
-          role="button"
-          [attr.aria-label]="labelOf(r)"
-        >
+        <a class="card-item" [style.--c]="colorOf(r)" [routerLink]="['/tadabbur', r.id]">
           <header class="item-head">
             <span class="ref">{{ labelOf(r) }}</span>
             <span class="tags">
@@ -160,31 +108,27 @@
               }
             </span>
           </header>
-          @for (a of r.ayahs.slice(0, 3); track a.surah + ':' + a.ayah) {
+          @for (a of r.ayahs.slice(0, 2); track a.surah + ':' + a.ayah) {
             <p class="ayah">
               {{ a.text }}&nbsp;<span class="ayah-ref"
                 >{{ surahName(a.surah) }} {{ ar(a.ayah) }}</span
               >
             </p>
           }
-          @if (r.ayahs.length > 3) {
-            <span class="more">و{{ ayahsCount(r.ayahs.length - 3) }} أخرى</span>
+          @if (r.ayahs.length > 2) {
+            <span class="more">و{{ ayahsCount(r.ayahs.length - 2) }} أخرى</span>
           }
           @if (r.note.trim()) {
             <p class="note">{{ r.note }}</p>
           }
           <footer class="item-foot">
             <span>{{ ayahsCount(r.ayahs.length) }}، {{ dayMonth(r.createdAt) }}</span>
-            <button
-              type="button"
-              class="to-mushaf"
-              (click)="$event.stopPropagation(); goToMushaf(r)"
-            >
-              <span>في المصحف</span>
+            <span class="open">
+              <span>افتح البطاقة</span>
               <app-icon name="chevronLeft" [size]="14" [stroke]="2.2" />
-            </button>
+            </span>
           </footer>
-        </article>
+        </a>
       } @empty {
         <p class="nothing">
           @if (query()) {
@@ -231,15 +175,62 @@
   </div>
 }
 
-<app-reflection-sheet
-  [open]="cardOpen()"
-  [reflectionId]="cardId()"
-  [showMushafLink]="true"
-  (closed)="cardOpen.set(false)"
-  (removed)="onRemoved($event)"
-  (openInMushaf)="goToMushaf($event)"
-  (addAyahs)="addAyahs($event)"
-/>
+<app-sheet [open]="statsOpen()" title="إحصائيات التدبر" (closed)="statsOpen.set(false)">
+  <div class="stats-body">
+    <section class="reading" aria-label="قراءة التدبر">
+      <div class="tiles">
+        <div class="tile">
+          <span class="tile-label">اليوم</span>
+          <span class="tile-value">{{ duration(stats().todayMs) }}</span>
+          @if (stats().todayPages) {
+            <span class="tile-sub">{{ pagesLabel(stats().todayPages) }}</span>
+          }
+        </div>
+        <div class="tile">
+          <span class="tile-label">هذا الأسبوع</span>
+          <span class="tile-value">{{ duration(stats().weekMs) }}</span>
+        </div>
+        <div class="tile">
+          <span class="tile-label">الإجمالي</span>
+          <span class="tile-value">{{ duration(stats().totalMs) }}</span>
+          @if (stats().days) {
+            <span class="tile-sub"
+              >{{ pagesLabel(stats().pages) }} في {{ daysLabel(stats().days) }}</span
+            >
+          }
+        </div>
+      </div>
+      <div class="week" role="img" [attr.aria-label]="'وقت التدبر في آخر سبعة أيام'">
+        @for (d of week(); track d.date) {
+          <div class="day" [class.today]="d.today" [attr.title]="d.tip">
+            <span class="bar-slot"><span class="bar" [style.height.%]="d.height"></span></span>
+            <span class="day-label">{{ d.label }}</span>
+          </div>
+        }
+      </div>
+      <p class="apart">وقت التدبر منفصل عن الختمة ولا يُحسب فيها.</p>
+    </section>
+    @if (list().length) {
+      <section class="map" [style.--c]="spreadColor()" aria-label="مواضع الآيات في المصحف">
+        <div class="map-head">
+          <span class="map-title">{{ mapTitle() }}</span>
+          <span class="map-meta">{{ spreadLabel() }}</span>
+        </div>
+        <div class="map-cells">
+          @for (cell of spread(); track cell.juz) {
+            <span
+              class="cell"
+              [class.empty]="!cell.n"
+              [style.--level]="cell.level"
+              [attr.title]="'الجزء ' + ar(cell.juz) + (cell.n ? '، ' + ar(cell.n) : '')"
+            ></span>
+          }
+        </div>
+        <div class="map-scale"><span>الجزء ١</span><span>١٥</span><span>٣٠</span></div>
+      </section>
+    }
+  </div>
+</app-sheet>
 
 <app-sheet
   [open]="manageOpen()"

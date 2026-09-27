@@ -14,6 +14,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/tadabbur/tadabbur').then((m) => m.Tadabbur),
   },
   {
+    path: 'tadabbur/:id',
+    title: 'بطاقة تدبّر — ختمة',
+    loadComponent: () => import('./features/tadabbur/card-page').then((m) => m.CardPage),
+  },
+  {
     path: 'awrad',
     title: 'الأوراد — ختمة',
     loadComponent: () => import('./features/awrad/awrad').then((m) => m.Awrad),

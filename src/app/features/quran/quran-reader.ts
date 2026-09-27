@@ -79,6 +79,7 @@ export interface AyahRangeSelection {
     '[class.has-selection]': 'selectedRange() !== null',
     '[class.has-player]': 'audio.isActive()',
     '[class.tadabbur-on]': 'tadabbur.active()',
+    '[class.has-return]': 'returnCard() !== null',
     '[attr.data-theme]': 'store.state().backgroundTheme',
     '(document:keydown)': 'onKey($event)',
   },
@@ -107,6 +108,14 @@ export class QuranReader {
   protected readonly height = signal(0);
   /** Page under the viewport right now (follows the finger). */
   readonly visiblePage = signal(1);
+  /** The ayah a tadabbur card sent the reader to, lit until the reader taps the page. */
+  protected readonly focusAyah = signal<{ surah: number; ayah: number } | null>(null);
+  /** The card the reader came from, offered as a way back. */
+  protected readonly returnCard = signal<string | null>(null);
+  protected readonly returnLabel = computed(() => {
+    const r = this.tadabbur.get(this.returnCard());
+    return r ? labelOf(r) : '';
+  });
 
   /**
    * Two facing pages on a wide screen (P6): odd page on the right, even on the left, as in a printed
@@ -278,10 +287,15 @@ export class QuranReader {
       this.timer.setTarget(tadabbur ? 'tadabbur' : 'khatma');
       this.mode = tadabbur;
       const home = tadabbur ? (this.tadabbur.lastPage() ?? this.store.state().lastPage) : this.store.state().lastPage;
-      // `/quran?page=N` (from the tadabbur journal) opens that page once, then the URL is tidied.
-      const asked = Number(this.route.snapshot.queryParamMap.get('page'));
+      // `/quran?page=N&ayah=S:A&card=ID` (from a tadabbur card) opens that page once with the ayah lit
+      // and a way back to the card; then the URL is tidied.
+      const params = this.route.snapshot.queryParamMap;
+      const asked = Number(params.get('page'));
       const start = this.normalize(asked >= 1 ? asked : home);
-      if (this.route.snapshot.queryParamMap.has('page')) {
+      const [surah, ayah] = (params.get('ayah') ?? '').split(':').map(Number);
+      if (surah > 0 && ayah > 0) this.focusAyah.set({ surah, ayah });
+      if (params.get('card') && this.tadabbur.get(params.get('card'))) this.returnCard.set(params.get('card'));
+      if (params.keys.length) {
         void this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
       }
       this.visiblePage.set(start);
@@ -415,6 +429,7 @@ export class QuranReader {
    */
   protected onAyahClicked(event: { ayah: QuranAyah; pageAyahs: QuranAyah[]; page: number }) {
     const { ayah, pageAyahs } = event;
+    this.focusAyah.set(null);
     if (this.tadabbur.active()) {
       this.tadabburTap(event);
       return;
@@ -653,6 +668,12 @@ export class QuranReader {
   /** Tapping the page outside an ayah clears the selection. */
   protected onTap() {
     this.selectedRange.set(null);
+    this.focusAyah.set(null);
+  }
+
+  protected backToCard() {
+    const id = this.returnCard();
+    if (id) void this.router.navigate(['/tadabbur', id]);
   }
 
   /** Tafsir for the whole selection, one card per ayah (capped so a long range stays readable). */

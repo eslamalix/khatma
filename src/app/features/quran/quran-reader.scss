@@ -302,6 +302,49 @@
   animation: fadeIn 0.2s var(--ease);
 }
 
+/* Back to the tadabbur card the reader came from. */
+.return-pill {
+  position: absolute;
+  z-index: 11;
+  top: calc(var(--top-h) + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 24px);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 22px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+.return-main {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px 0 14px;
+  border-radius: 17px;
+  color: var(--accent);
+  font-size: 13.5px;
+  font-weight: 600;
+  span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  b { font-weight: 700; }
+}
+.return-close {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+  background: var(--fill);
+}
+:host(.has-return) .toast-popup { top: calc(var(--top-h) + 60px); }
+
 /* Tadabbur mode: a strip of themes just above the page navigation; the mini player rests above it. */
 :host(.tadabbur-on) {
   --strip-h: 52px;
