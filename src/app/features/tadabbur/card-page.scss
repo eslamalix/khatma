@@ -306,20 +306,22 @@
   color: var(--q-ink, var(--ink));
   text-align: justify;
 }
+/* Highlights are a band on the letters (the Quran face's lines are very tall), as in the mushaf. */
 .ayah {
+  --band: transparent;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: 10px;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.18s var(--ease);
+  background: linear-gradient(transparent 24%, var(--band) 24%, var(--band) 90%, transparent 90%);
   @media (hover: hover) {
     &:hover {
-      background: color-mix(in srgb, var(--accent) 7%, transparent);
+      --band: color-mix(in srgb, var(--accent) 8%, transparent);
     }
   }
   &.active {
-    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    --band: color-mix(in srgb, var(--accent) 18%, transparent);
   }
   .end {
     color: var(--q-gold, var(--accent));
