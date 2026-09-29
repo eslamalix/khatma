@@ -91,6 +91,13 @@
   </div>
 }
 
+<!-- A page taller than the screen: the rest of it, one tap (or Space) away. Wide screens only. -->
+@if (moreBelow()) {
+  <button type="button" class="side more" (click)="readMore()" aria-label="تكملة الصفحة" title="تكملة الصفحة (مسافة)">
+    <app-icon name="chevronDown" [size]="24" [stroke]="2" />
+  </button>
+}
+
 <button type="button" class="side prev" (click)="go(-1)" [disabled]="visiblePage() <= 1" aria-label="الصفحة السابقة">
   <app-icon name="chevronRight" [size]="24" [stroke]="2" />
 </button>
@@ -214,6 +221,9 @@
           }
           <p class="tafsir-paragraph">{{ t.text }}</p>
         </div>
+      }
+      @if (tafsirMore()) {
+        <p class="tafsir-more">تفسير أول {{ ar(tafsirItems().length) }} آيات هنا، والباقي في صفحة البطاقة بعد الحفظ.</p>
       }
       <div class="tafsir-footer">
         <button type="button" class="tafsir-close-btn" (click)="tafsirOpen.set(false)">إغلاق</button>

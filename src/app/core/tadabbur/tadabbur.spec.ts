@@ -9,7 +9,9 @@ import {
   juzSpread,
   mergeDays,
   mergeTadabbur,
+  formatAyahRange,
   normalizeArabic,
+  parseAyahRange,
   passagesOf,
   Reflection,
   reflectionsAsText,
@@ -116,6 +118,15 @@ describe('tadabbur passages', () => {
       [3, 1, 1, 2],
     ]);
     expect(p[0].ayahs.map((a) => a.text)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('writes and reads a passage for the mushaf link', () => {
+    expect(formatAyahRange({ surah: 2, from: 5, to: 7 })).toBe('2:5-7');
+    expect(formatAyahRange({ surah: 39, from: 53, to: 53 })).toBe('39:53');
+    expect(parseAyahRange('2:5-7')).toEqual({ surah: 2, from: 5, to: 7 });
+    expect(parseAyahRange('39:53')).toEqual({ surah: 39, from: 53, to: 53 });
+    for (const bad of ['', null, '2', '2:', '2:7-5', '0:1', '115:1', '2:0', 'x:1', '2:5-7-9'])
+      expect(parseAyahRange(bad)).toBeNull();
   });
 
   it('keeps the last ayah of one surah apart from the first of the next', () => {

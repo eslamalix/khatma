@@ -488,6 +488,7 @@
   }
   .prev { right: 28px; }
   .next { left: 28px; }
+  .more { left: 28px; top: auto; bottom: calc(var(--player-bottom) + 12px); margin-top: 0; animation: fadeIn 0.2s var(--ease); }
   :host { --player-bottom: calc(22px + 54px + 12px); }
   :host(.has-selection) { --player-bottom: 22px; }
   .ayah-bar { bottom: 22px; }

@@ -187,7 +187,7 @@ export class Tadabbur {
     if (!list.length) return;
     try {
       await navigator.clipboard?.writeText(reflectionsAsText(list, surahName, ar));
-      this.showToast({ label: `نُسخت ${counted(list.length, AYAHS)}` });
+      this.showToast({ label: `نُسخت ${counted(list.length, CARDS)}` });
     } catch {
       this.showToast({ label: 'تعذّر النسخ' });
     }

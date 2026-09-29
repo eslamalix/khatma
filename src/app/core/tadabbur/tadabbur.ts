@@ -167,6 +167,20 @@ export interface Passage {
   ayahs: CardAyah[];
 }
 
+/** A passage as it travels in a link to the mushaf: "2:5" or "2:5-7". */
+export const formatAyahRange = (p: Pick<Passage, 'surah' | 'from' | 'to'>) =>
+  `${p.surah}:${p.from}${p.to > p.from ? `-${p.to}` : ''}`;
+
+/** "2:5-7" → { surah: 2, from: 5, to: 7 }; anything malformed or reversed → null. */
+export function parseAyahRange(
+  text: string | null | undefined,
+): { surah: number; from: number; to: number } | null {
+  const m = (text ?? '').match(/^(\d{1,3}):(\d{1,3})(?:-(\d{1,3}))?$/);
+  if (!m) return null;
+  const [surah, from, to] = [+m[1], +m[2], +(m[3] ?? m[2])];
+  return surah >= 1 && surah <= 114 && from >= 1 && to >= from ? { surah, from, to } : null;
+}
+
 /** A card's ayahs as passages: consecutive ayahs of a surah run together, in mushaf order. */
 export function passagesOf(ayahs: readonly CardAyah[]): Passage[] {
   const out: Passage[] = [];

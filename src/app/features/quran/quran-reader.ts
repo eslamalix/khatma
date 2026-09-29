@@ -110,6 +110,8 @@ export class QuranReader {
   readonly visiblePage = signal(1);
   /** The passage a tadabbur card sent the reader to, lit until the reader taps the page. */
   protected readonly focusAyahs = signal<{ surah: number; from: number; to: number } | null>(null);
+  /** More of the page on screen lies below the fold (a page taller than the screen): offer the rest. */
+  protected readonly moreBelow = signal(false);
   /** The card the reader came from, offered as a way back. */
   protected readonly returnCard = signal<string | null>(null);
   protected readonly returnLabel = computed(() => {
@@ -216,6 +218,9 @@ export class QuranReader {
   readonly tafsirLoading = signal<boolean>(false);
   readonly tafsirItems = signal<{ key: string; label: string; text: string }[]>([]);
   readonly tafsirRef = signal<string>('');
+  /** Ayahs left out of the sheet beyond the cap, said at its end. */
+  readonly tafsirMore = signal(0);
+  private tafsirRequest = 0;
 
   // Tadabbur: the card sheet, the save-to-card sheet, and an undo for the last change.
   protected readonly reflectionOpen = signal(false);
@@ -246,6 +251,28 @@ export class QuranReader {
 
   constructor() {
     const destroyRef = inject(DestroyRef);
+    // Whether the page on screen has lines hidden below: its own scrolling, a page turn, a re-fit.
+    afterNextRender(() => {
+      const el = this.pager().nativeElement;
+      let frame = 0;
+      const check = () => {
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(() => {
+          const slide = this.slideInView();
+          this.moreBelow.set(!!slide && slide.scrollHeight - slide.clientHeight - slide.scrollTop > 24);
+        });
+      };
+      el.addEventListener('scroll', check, { capture: true, passive: true });
+      const observer = new ResizeObserver(check);
+      observer.observe(el);
+      const settle = setInterval(check, 1000);
+      destroyRef.onDestroy(() => {
+        el.removeEventListener('scroll', check, { capture: true });
+        observer.disconnect();
+        clearInterval(settle);
+        cancelAnimationFrame(frame);
+      });
+    });
     afterNextRender(async () => {
       const el = this.pager().nativeElement;
       const measure = () => {
@@ -381,6 +408,36 @@ export class QuranReader {
       this.visiblePage.set(page);
       this.commit(page);
     }, SETTLE_MS);
+  }
+
+  /** The slide under the middle of the pager: the page (or spread) being read. */
+  private slideInView(): HTMLElement | null {
+    const box = this.pager().nativeElement.getBoundingClientRect();
+    const x = box.left + box.width / 2;
+    const y = box.top + box.height / 2;
+    for (const slide of this.pager().nativeElement.querySelectorAll<HTMLElement>('.slide')) {
+      const r = slide.getBoundingClientRect();
+      if (r.left <= x && r.right >= x && r.top <= y && r.bottom >= y) return slide;
+    }
+    return null;
+  }
+
+  /**
+   * Reads on within a page taller than the screen before turning it: scrolls it most of a screen and
+   * reports true, or false when it is already at that end.
+   */
+  private scrollWithin(direction: 1 | -1): boolean {
+    const slide = this.slideInView();
+    if (!slide) return false;
+    const left = direction > 0 ? slide.scrollHeight - slide.clientHeight - slide.scrollTop : slide.scrollTop;
+    if (left <= 4) return false;
+    slide.scrollBy({ top: direction * Math.min(left, slide.clientHeight * 0.8), behavior: 'smooth' });
+    return true;
+  }
+
+  /** "تكملة الصفحة": the lines hidden below. */
+  protected readMore() {
+    this.scrollWithin(1);
   }
 
   protected go(delta: number) {
@@ -703,11 +760,15 @@ export class QuranReader {
 
   private showTafsir(ref: string, list: { surah: number; ayah: number; label: string }[]) {
     const ayahs = list.slice(0, TAFSIR_MAX_AYAHS);
+    const request = ++this.tafsirRequest;
     this.tafsirRef.set(ref);
+    this.tafsirMore.set(list.length - ayahs.length);
     this.tafsirOpen.set(true);
     this.tafsirLoading.set(true);
     this.tafsirItems.set([]);
     Promise.all(ayahs.map((a) => this.tafsirService.getTafsir(a.surah, a.ayah))).then((texts) => {
+      // Opened again for other ayahs meanwhile: that one's answer is the one to show.
+      if (request !== this.tafsirRequest) return;
       this.tafsirItems.set(
         ayahs.map((a, i) => ({ key: `${a.surah}:${a.ayah}`, label: a.label, text: texts[i] })),
       );
@@ -775,14 +836,18 @@ export class QuranReader {
       }
     }
 
-    if (event.key === ' ' && !this.tafsirOpen()) {
+    // Space, ↓ and PageDown read on down the page first and turn it only at its end, like a book; the
+    // side arrows always turn.
+    const down = (event.key === ' ' && !event.shiftKey) || event.key === 'ArrowDown' || event.key === 'PageDown';
+    const up = (event.key === ' ' && event.shiftKey) || event.key === 'ArrowUp' || event.key === 'PageUp';
+    if (down || up) {
       event.preventDefault();
-      this.go(1);
+      if (!this.scrollWithin(down ? 1 : -1)) this.go(down ? 1 : -1);
     } else if ((event.key === 't' || event.key === 'T') && this.selectedRange()) {
       this.openTafsir();
-    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+    } else if (event.key === 'ArrowLeft') {
       this.go(1);
-    } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+    } else if (event.key === 'ArrowRight') {
       this.go(-1);
     } else if ((event.ctrlKey || event.metaKey) && (event.key === '=' || event.key === '+')) {
       this.zoom(0.1, event);

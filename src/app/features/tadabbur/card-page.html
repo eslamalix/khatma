@@ -161,7 +161,8 @@
                   [class.active]="activeAyah() === key(a.surah, a.ayah)"
                   role="button"
                   tabindex="0"
-                  [attr.aria-label]="'تفسير الآية ' + ar(a.ayah)"
+                  [attr.aria-pressed]="activeAyah() === key(a.surah, a.ayah)"
+                  title="المس لترى تفسيرها"
                   (click)="onAyah(p, a)"
                   (keydown.enter)="onAyah(p, a)"
                   >{{ a.text }}&nbsp;<span class="end">۝{{ ar(a.ayah) }}</span></span
