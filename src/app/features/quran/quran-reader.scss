@@ -493,3 +493,13 @@
   .ayah-bar { bottom: 22px; }
   :host(.has-player) .ayah-bar { bottom: calc(22px + var(--player-h) + 12px); }
 }
+
+/*
+ * Wide screens: the tadabbur strip sits beside the page navigation in one row instead of above it,
+ * so the page keeps the same height as in plain reading and is seen whole.
+ */
+@media (min-width: 1024px) {
+  :host(.tadabbur-on) { --player-bottom: calc(22px + 54px + 12px); }
+  :host(.tadabbur-on) .nav { left: calc(50% + 226px); }
+  :host(.tadabbur-on) .tadabbur-strip { bottom: 23px; left: calc(50% - 226px); width: 440px; }
+}

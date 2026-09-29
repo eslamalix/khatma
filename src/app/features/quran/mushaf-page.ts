@@ -21,6 +21,9 @@ import { AyahMark, ayahKey } from '../../core/tadabbur/tadabbur';
 /** How far a page may grow or shrink its text to fill the screen before the reader's own zoom applies. */
 const FIT_MIN = 0.9;
 const FIT_MAX = 1.35;
+/** Wide screens show the whole page at once, like a printed mushaf, so the text may shrink further. */
+const FIT_MIN_WIDE = 0.72;
+const WIDE = 768;
 
 type Block = { kind: 'header'; surah: number; basmala: boolean } | { kind: 'text'; ayahs: QuranAyah[] };
 
@@ -181,9 +184,10 @@ export class MushafPage {
       return sheet.offsetHeight + margins <= available;
     };
 
-    let best = FIT_MIN;
+    const min = slide.clientWidth >= WIDE ? FIT_MIN_WIDE : FIT_MIN;
+    let best = min;
     if (fits(FIT_MAX)) best = FIT_MAX;
-    else if (fits(FIT_MIN)) {
+    else if (fits(min)) {
       let hi = FIT_MAX;
       for (let i = 0; i < 7; i++) {
         const mid = (best + hi) / 2;
@@ -192,7 +196,11 @@ export class MushafPage {
       }
     }
 
-    host.style.setProperty('--fit', best.toFixed(3));
+    // Facing pages share one size, the smaller of the two, so the spread reads as one mushaf.
+    host.dataset['fit'] = String(best);
+    const pages = [...slide.querySelectorAll<HTMLElement>('app-mushaf-page')];
+    const shared = Math.min(...pages.map((p) => Number(p.dataset['fit']) || best));
+    for (const p of pages) p.style.setProperty('--fit', shared.toFixed(3));
     sheet.style.minHeight = '';
     host.style.setProperty('--scale', String(this.fontScale()));
     slide.scrollTop = scrollTop;
@@ -200,6 +208,7 @@ export class MushafPage {
   }
 
   protected load(page = this.page()) {
+    delete this.host.nativeElement.dataset['fit'];
     this.failed.set(false);
     this.data.set(null);
     this.pages.get(page).then(
