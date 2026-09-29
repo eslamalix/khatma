@@ -214,7 +214,7 @@ export class QuranReader {
   // Tafsir
   readonly tafsirOpen = signal<boolean>(false);
   readonly tafsirLoading = signal<boolean>(false);
-  readonly tafsirItems = signal<{ ayah: number; text: string }[]>([]);
+  readonly tafsirItems = signal<{ key: string; label: string; text: string }[]>([]);
   readonly tafsirRef = signal<string>('');
 
   // Tadabbur: the card sheet, the save-to-card sheet, and an undo for the last change.
@@ -680,13 +680,37 @@ export class QuranReader {
   openTafsir() {
     const r = this.selectedRange();
     if (!r) return;
-    const ayahs = r.ayahs.slice(0, TAFSIR_MAX_AYAHS);
-    this.tafsirRef.set(this.selectionLabel());
+    this.showTafsir(
+      this.selectionLabel(),
+      r.ayahs.map((a) => ({ surah: a.surah, ayah: a.ayah, label: `الآية ${ar(a.ayah)}` })),
+    );
+  }
+
+  /** Tadabbur mode: the tafsir of the ayahs gathered so far, wherever they are in the mushaf. */
+  protected openCollectedTafsir() {
+    const ayahs = [...this.tadabbur.collection()].sort((a, b) => a.surah - b.surah || a.ayah - b.ayah);
+    if (!ayahs.length) return;
+    const oneSurah = ayahs.every((a) => a.surah === ayahs[0].surah);
+    this.showTafsir(
+      labelOf({ title: '', ayahs }),
+      ayahs.map((a) => ({
+        surah: a.surah,
+        ayah: a.ayah,
+        label: oneSurah ? `الآية ${ar(a.ayah)}` : `${surahName(a.surah)} ${ar(a.ayah)}`,
+      })),
+    );
+  }
+
+  private showTafsir(ref: string, list: { surah: number; ayah: number; label: string }[]) {
+    const ayahs = list.slice(0, TAFSIR_MAX_AYAHS);
+    this.tafsirRef.set(ref);
     this.tafsirOpen.set(true);
     this.tafsirLoading.set(true);
     this.tafsirItems.set([]);
     Promise.all(ayahs.map((a) => this.tafsirService.getTafsir(a.surah, a.ayah))).then((texts) => {
-      this.tafsirItems.set(ayahs.map((a, i) => ({ ayah: a.ayah, text: texts[i] })));
+      this.tafsirItems.set(
+        ayahs.map((a, i) => ({ key: `${a.surah}:${a.ayah}`, label: a.label, text: texts[i] })),
+      );
       this.tafsirLoading.set(false);
     });
   }

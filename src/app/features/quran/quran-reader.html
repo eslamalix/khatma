@@ -135,6 +135,12 @@
           <small>إلى «{{ targetLabel() }}»</small>
         }
       </span>
+      @if (tadabbur.collection().length) {
+        <button type="button" class="strip-save alt" (click)="openCollectedTafsir()" aria-label="تفسير الآيات المجموعة">
+          <app-icon name="note" [size]="17" [stroke]="1.9" />
+          <span>التفسير</span>
+        </button>
+      }
       <button type="button" class="strip-save" (click)="saveCollection()" [disabled]="!tadabbur.collection().length">
         <app-icon name="lamp" [size]="17" [stroke]="2" />
         <span>{{ tadabbur.targetId() ? 'أضف للبطاقة' : 'حفظ في بطاقة' }}</span>
@@ -201,10 +207,10 @@
         <p>جارٍ تحميل التفسير الميسر...</p>
       </div>
     } @else {
-      @for (t of tafsirItems(); track t.ayah) {
+      @for (t of tafsirItems(); track t.key) {
         <div class="tafsir-text-box">
           @if (tafsirItems().length > 1) {
-            <span class="tafsir-ayah">الآية {{ ar(t.ayah) }}</span>
+            <span class="tafsir-ayah">{{ t.label }}</span>
           }
           <p class="tafsir-paragraph">{{ t.text }}</p>
         </div>

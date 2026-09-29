@@ -417,6 +417,8 @@
   &:disabled { opacity: 0.4; cursor: default; }
 }
 
+.strip-save.alt { padding: 0 12px; background: var(--fill); color: var(--ink); }
+
 .toast-popup.undo {
   padding-inline-end: 6px;
   max-width: calc(100% - 24px);
