@@ -131,7 +131,9 @@ export class MushafPage {
       }, 350);
     });
 
+    // Fitted again when tadabbur mode comes or goes: its strip changes the room the page has.
     effect(() => {
+      this.markMode();
       if (this.data()) afterNextRender(() => this.fit(), { injector: this.injector });
     });
     afterNextRender(() => {

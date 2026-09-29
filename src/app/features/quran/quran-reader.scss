@@ -349,9 +349,11 @@
 :host(.tadabbur-on) {
   --strip-h: 52px;
   --player-bottom: calc(var(--bottom-h) + 10px + var(--strip-h) + 8px);
-  --slide-extra: calc(var(--strip-h) + 12px);
+  --slide-extra: 0px;
 }
-:host(.tadabbur-on.has-player) { --slide-extra: calc(var(--strip-h) + var(--player-h) + 28px); }
+:host(.tadabbur-on.has-player) { --slide-extra: calc(var(--player-h) + 16px); }
+/* The strip takes its room from the page, so the text is fitted above it and the page's end shows. */
+:host(.tadabbur-on) .slide { padding-bottom: var(--player-bottom); }
 
 .tadabbur-strip {
   position: absolute;
