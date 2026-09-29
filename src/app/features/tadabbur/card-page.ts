@@ -19,6 +19,7 @@ import { TafsirService } from '../../core/quran/tafsir.service';
 import {
   ayahKey,
   CardAyah,
+  formatAyahRange,
   Passage,
   passagesOf,
   REFLECTION_PROMPTS,
@@ -138,8 +139,9 @@ export class CardPage {
     const r = this.card();
     this.commit();
     this.store.setActive(true);
-    const ayah = `${p.surah}:${p.from}${p.to > p.from ? `-${p.to}` : ''}`;
-    void this.router.navigate(['/quran'], { queryParams: { page: p.page, ayah, card: r?.id } });
+    void this.router.navigate(['/quran'], {
+      queryParams: { page: p.page, ayah: formatAyahRange(p), card: r?.id },
+    });
   }
 
   protected isTafsirOpen(p: Passage) {

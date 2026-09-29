@@ -178,7 +178,8 @@ export class MushafPage {
     const scrollTop = slide.scrollTop;
     const margins = parseFloat(getComputedStyle(sheet).marginTop) * 2;
     host.style.setProperty('--scale', '1');
-    sheet.style.minHeight = '0';
+    // Measured at its own height, not stretched to the screen.
+    sheet.style.flex = 'none';
     const fits = (f: number) => {
       host.style.setProperty('--fit', f.toFixed(3));
       return sheet.offsetHeight + margins <= available;
@@ -201,7 +202,7 @@ export class MushafPage {
     const pages = [...slide.querySelectorAll<HTMLElement>('app-mushaf-page')];
     const shared = Math.min(...pages.map((p) => Number(p.dataset['fit']) || best));
     for (const p of pages) p.style.setProperty('--fit', shared.toFixed(3));
-    sheet.style.minHeight = '';
+    sheet.style.flex = '';
     host.style.setProperty('--scale', String(this.fontScale()));
     slide.scrollTop = scrollTop;
     host.classList.add('fitted');

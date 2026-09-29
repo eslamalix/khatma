@@ -158,13 +158,17 @@
 .track { position: relative; height: 100%; }
 
 /* Two facing pages: odd on the right, even on the left (RTL order), a narrow gutter between them. */
+/* Each page is at least the screen tall and grows with a longer page, so the slide scrolls to its end;
+   the extra room for floating bars wraps onto a line of its own below them. */
 .slide.spread {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  align-items: stretch;
-  gap: 14px;
+  align-items: flex-start;
+  column-gap: 14px;
   padding-inline: 92px;
   app-mushaf-page { flex: 1 1 0; min-width: 0; max-width: 600px; }
+  &::after { flex-basis: 100%; }
 }
 .tadabbur-kpi .kpi-value { color: var(--accent); }
 

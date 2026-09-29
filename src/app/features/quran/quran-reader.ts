@@ -40,7 +40,7 @@ import { QuranAudioService } from '../../core/quran/quran-audio.service';
 import { TafsirService } from '../../core/quran/tafsir.service';
 import { QuranPlayer } from './quran-player';
 import { TadabburStore } from '../../core/tadabbur/tadabbur.store';
-import { CardAyah, Reflection } from '../../core/tadabbur/tadabbur';
+import { CardAyah, parseAyahRange, Reflection } from '../../core/tadabbur/tadabbur';
 import { labelOf, ReflectionSheet } from '../tadabbur/reflection-sheet';
 import { CollectSheet } from '../tadabbur/collect-sheet';
 
@@ -319,8 +319,7 @@ export class QuranReader {
       const params = this.route.snapshot.queryParamMap;
       const asked = Number(params.get('page'));
       const start = this.normalize(asked >= 1 ? asked : home);
-      const [, surah, from, to] = (params.get('ayah') ?? '').match(/^(\d+):(\d+)(?:-(\d+))?$/) ?? [];
-      if (surah && from) this.focusAyahs.set({ surah: +surah, from: +from, to: +(to ?? from) });
+      this.focusAyahs.set(parseAyahRange(params.get('ayah')));
       if (params.get('card') && this.tadabbur.get(params.get('card'))) this.returnCard.set(params.get('card'));
       if (params.keys.length) {
         void this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });

@@ -3,7 +3,9 @@
   --fit: 1;
   /* Final text size factor: the page's own fit times the reader's zoom. */
   --size: calc(var(--fit) * var(--scale));
-  display: block;
+  /* At least the screen's height, and taller with a page that is: the slide can then scroll to its end. */
+  display: flex;
+  flex-direction: column;
   min-height: 100%;
 }
 
@@ -13,8 +15,10 @@
 
 .sheet {
   position: relative;
+  /* Fills the page's height (the page number sits at the foot), grows with a longer page. */
+  flex: 1 0 auto;
+  width: 100%;
   max-width: 640px;
-  min-height: 100%;
   margin: 0 auto;
   padding: 14px 20px 20px;
   display: flex;
@@ -24,7 +28,6 @@
 
   /* Larger screens: a real page on the desk, with the fine double rule of a printed mushaf. */
   @media (min-width: 768px) {
-    min-height: calc(100% - 40px);
     margin: 20px auto;
     padding: 40px 52px 30px;
     background: var(--sheet);
