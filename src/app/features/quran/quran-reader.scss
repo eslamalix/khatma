@@ -147,11 +147,16 @@
   touch-action: pan-x pan-y;
   outline: none;
   &::-webkit-scrollbar { display: none; }
+  /* Vertical reading: the pages one after another, each at its own height, scrolled as one long page. */
   &.vertical {
     overflow-x: hidden;
     overflow-y: auto;
-    scroll-snap-type: y mandatory;
     touch-action: pan-y;
+    /* The reader keeps the text in view itself as pages are measured; the browser's own anchoring would double it. */
+    overflow-anchor: none;
+    padding: var(--top-h) 0 calc(var(--player-bottom) + 16px + var(--slide-extra, 0px));
+    .slide.flow { bottom: auto; overflow: visible; padding: 0; scroll-snap-align: none; }
+    .slide.flow::after { display: none; }
   }
 }
 

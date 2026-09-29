@@ -92,6 +92,7 @@ export class QuranReader {
   protected readonly timer = inject(ReadingTimer);
   private readonly pages = inject(QuranPages);
   private readonly pager = viewChild.required<ElementRef<HTMLElement>>('pager');
+  private readonly track = viewChild.required<ElementRef<HTMLElement>>('track');
   private readonly player = viewChild.required(QuranPlayer);
   private readonly injector = inject(Injector);
   protected readonly tadabbur = inject(TadabburStore);
@@ -141,6 +142,36 @@ export class QuranReader {
     const p = clampPage(page);
     return this.spread() && p % 2 === 0 ? p - 1 : p;
   }
+  /**
+   * Vertical reading scrolls on like one long page (P5): each page takes its own height, measured once it
+   * is drawn; pages not drawn yet are taken as a screen tall. `flowTops[p]` is where page p starts.
+   */
+  protected readonly flow = computed(() => this.readingMode() === 'vertical');
+  private readonly pageHeights = signal<ReadonlyMap<number, number>>(new Map());
+  private readonly flowTops = computed(() => {
+    const heights = this.pageHeights();
+    const guess = Math.max(400, this.height());
+    const tops = new Array<number>(TOTAL_PAGES + 2).fill(0);
+    for (let p = 1; p <= TOTAL_PAGES; p++) tops[p + 1] = tops[p] + (heights.get(p) ?? guess);
+    return tops;
+  });
+  protected readonly flowHeight = computed(() => this.flowTops()[TOTAL_PAGES + 1]);
+  protected flowTop(page: number) {
+    return this.flowTops()[page];
+  }
+  /** The page at a point of the vertical flow (px from its start). */
+  private flowPageAt(y: number) {
+    const tops = this.flowTops();
+    let lo = 1;
+    let hi = TOTAL_PAGES;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (tops[mid] <= y) lo = mid;
+      else hi = mid - 1;
+    }
+    return lo;
+  }
+
   protected readonly slides = computed(() => {
     const u = this.unitOf(this.visiblePage());
     const list: { unit: number; pages: number[] }[] = [];
@@ -242,6 +273,12 @@ export class QuranReader {
   private settleTimer: ReturnType<typeof setTimeout> | null = null;
   /** Page to keep while the pager is being resized (rotation, window resize). */
   private resizeHold: number | null = null;
+  /**
+   * Until the reader has been put on its page. The mushaf is first drawn at page 1, before the stored place
+   * is known, and the browser's snapping moves the scroll meanwhile; taken as page turns, those moves could
+   * leave the reader on another page (9–10 instead of 311–312).
+   */
+  private placing = true;
   /** Page a button/keyboard turn is animating to; scroll events in between must not move the counter back. */
   private turningTo: number | null = null;
   private pinch: { distance: number; scale: number } | null = null;
@@ -251,6 +288,48 @@ export class QuranReader {
 
   constructor() {
     const destroyRef = inject(DestroyRef);
+    // Vertical reading: each drawn page's real height. When pages above the one being read change height
+    // (drawn for the first time, re-flowed), the scroll moves with them so the text in view stays put.
+    const heights = new ResizeObserver((entries) => {
+      if (!this.flow()) return;
+      const changed = new Map<number, number>();
+      for (const entry of entries) {
+        const page = Number((entry.target as HTMLElement).dataset['page']);
+        const h = Math.round(entry.borderBoxSize[0].blockSize);
+        if (page && h && Math.abs((this.pageHeights().get(page) ?? 0) - h) > 1) changed.set(page, h);
+      }
+      if (!changed.size) return;
+      const el = this.pager().nativeElement;
+      // While the reader is being put on a page (opening, a resize, a change of mode) that page stays at the
+      // top; otherwise the text being read stays where it is on screen.
+      const settling = this.placing || this.resizeHold !== null;
+      const anchor = this.resizeHold ?? this.visiblePage();
+      const before = this.flowTop(anchor);
+      const into = settling ? 0 : el.scrollTop - before;
+      this.pageHeights.set(new Map([...this.pageHeights(), ...changed]));
+      const after = this.flowTop(anchor);
+      if (after !== before || settling) {
+        this.afterRender(() => el.scrollTo({ top: after + into, behavior: 'instant' }));
+      }
+    });
+    const watched = new Set<Element>();
+    effect(() => {
+      if (!this.flow()) return;
+      this.slides();
+      this.afterRender(() => {
+        for (const slide of watched) {
+          if (!slide.isConnected) {
+            heights.unobserve(slide);
+            watched.delete(slide);
+          }
+        }
+        for (const slide of this.pager().nativeElement.querySelectorAll<HTMLElement>('.slide.flow')) {
+          heights.observe(slide);
+          watched.add(slide);
+        }
+      });
+    });
+    destroyRef.onDestroy(() => heights.disconnect());
     // Whether the page on screen has lines hidden below: its own scrolling, a page turn, a re-fit.
     afterNextRender(() => {
       const el = this.pager().nativeElement;
@@ -326,7 +405,16 @@ export class QuranReader {
       }
       this.visiblePage.set(start);
       this.scrollToPage(start, false);
-      this.afterRender(() => this.scrollToPage(start, false));
+      this.afterRender(() => {
+        this.scrollToPage(start, false);
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            // Once more, with the heights of the pages drawn meanwhile (vertical reading).
+            this.scrollToPage(start, false);
+            this.placing = false;
+          }),
+        );
+      });
       this.commit(start);
     });
     destroyRef.onDestroy(() => {
@@ -386,19 +474,17 @@ export class QuranReader {
     return (unit - 1) * this.width();
   }
 
-  protected slideOffsetVertical(page: number) {
-    return (page - 1) * this.height();
-  }
-
   protected onScroll() {
     const el = this.pager().nativeElement;
-    const isVert = this.readingMode() === 'vertical';
+    const isVert = this.flow();
     const size = isVert ? this.height() : this.width();
-    if (!size || this.resizeHold !== null) return;
-    if (Math.abs((isVert ? el.clientHeight : el.clientWidth) - size) > 1) return; // size signal not caught up yet
-    const scrollPos = isVert ? el.scrollTop : Math.abs(el.scrollLeft);
-    const unit = Math.min(this.unitCount(), Math.max(1, Math.round(scrollPos / size) + 1));
-    const page = this.firstPageOf(unit);
+    if (!size || this.placing || this.resizeHold !== null) return;
+    // Horizontal slides are placed by the width signal: wait for it to catch up with a resize.
+    if (!isVert && Math.abs(el.clientWidth - size) > 1) return;
+    // Vertical: the page across the middle of the screen (P5); horizontal: the slide snapped to.
+    const page = isVert
+      ? this.flowPageAt(el.scrollTop + el.clientHeight / 2 - this.track().nativeElement.offsetTop)
+      : this.firstPageOf(Math.min(this.unitCount(), Math.max(1, Math.round(Math.abs(el.scrollLeft) / size) + 1)));
     if (this.turningTo === page) this.turningTo = null;
     if (this.turningTo === null && page !== this.visiblePage()) this.visiblePage.set(page);
     if (this.settleTimer) clearTimeout(this.settleTimer);
@@ -474,8 +560,21 @@ export class QuranReader {
   }
 
   protected setReadingMode(mode: ReadingMode) {
+    if (mode === this.readingMode()) return;
+    // The page being read, held while the pages are laid out the other way: the scroll position starts over
+    // and would otherwise be taken for a page change.
+    const page = this.resizeHold ?? this.visiblePage();
+    this.resizeHold = page;
     this.store.setReadingMode(mode);
-    this.afterRender(() => this.scrollToPage(this.visiblePage(), false));
+    this.afterRender(() => {
+      this.visiblePage.set(this.normalize(page));
+      this.scrollToPage(this.visiblePage(), false);
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          this.resizeHold = null;
+        }),
+      );
+    });
   }
 
   /**
@@ -841,7 +940,11 @@ export class QuranReader {
     const up = (event.key === ' ' && event.shiftKey) || event.key === 'ArrowUp' || event.key === 'PageUp';
     if (down || up) {
       event.preventDefault();
-      if (!this.scrollWithin(down ? 1 : -1)) this.go(down ? 1 : -1);
+      // Vertical reading is one long page: read on by most of a screen.
+      if (this.flow()) {
+        const el = this.pager().nativeElement;
+        el.scrollBy({ top: (down ? 1 : -1) * el.clientHeight * 0.8, behavior: 'smooth' });
+      } else if (!this.scrollWithin(down ? 1 : -1)) this.go(down ? 1 : -1);
     } else if ((event.key === 't' || event.key === 'T') && this.selectedRange()) {
       this.openTafsir();
     } else if (event.key === 'ArrowLeft') {
@@ -886,10 +989,8 @@ export class QuranReader {
 
   private scrollToPage(page: number, smooth: boolean) {
     const el = this.pager().nativeElement;
-    const isVert = this.readingMode() === 'vertical';
-    if (isVert) {
-      const h = this.height() || el.getBoundingClientRect().height;
-      el.scrollTo({ top: (page - 1) * h, behavior: smooth ? 'smooth' : 'instant' });
+    if (this.flow()) {
+      el.scrollTo({ top: this.flowTop(page), behavior: smooth ? 'smooth' : 'instant' });
     } else {
       const w = this.width() || el.getBoundingClientRect().width;
       el.scrollTo({ left: -(this.unitOf(page) - 1) * w, behavior: smooth ? 'smooth' : 'instant' });

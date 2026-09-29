@@ -24,6 +24,8 @@ const FIT_MAX = 1.35;
 /** Wide screens show the whole page at once, like a printed mushaf, so the text may shrink further. */
 const FIT_MIN_WIDE = 0.72;
 const WIDE = 768;
+/** Vertical reading on a wide screen: one page in the middle, at a comfortable size. */
+const FLOW_FIT_WIDE = 1;
 
 type Block = { kind: 'header'; surah: number; basmala: boolean } | { kind: 'text'; ayahs: QuranAyah[] };
 
@@ -44,6 +46,8 @@ export class MushafPage {
   private readonly injector = inject(Injector);
   readonly page = input.required<number>();
   readonly fontScale = input(1);
+  /** Vertical reading: pages follow one another at their own height, so the text is not fitted to the screen. */
+  readonly flow = input(false);
   readonly selectedRange = input<{ surah: number; startAyah: number; endAyah: number } | null>(null);
   readonly playingAyah = input<{ surah: number; ayah: number } | null>(null);
   /** Ayahs the reader was sent to (a passage on a tadabbur card): lit and scrolled into view. */
@@ -134,9 +138,11 @@ export class MushafPage {
       }, 350);
     });
 
-    // Fitted again when tadabbur mode comes or goes: its strip changes the room the page has.
+    // Fitted again when tadabbur mode comes or goes (its strip changes the room the page has) and when the
+    // reading mode changes.
     effect(() => {
       this.markMode();
+      this.flow();
       if (this.data()) afterNextRender(() => this.fit(), { injector: this.injector });
     });
     afterNextRender(() => {
@@ -157,7 +163,8 @@ export class MushafPage {
 
   /** Scroll the page so `el` sits clear of the top bar and of `bottomClearance` px at the bottom. */
   private reveal(el: HTMLElement, bottomClearance: number) {
-    const scroller = this.host.nativeElement.closest<HTMLElement>('.slide');
+    // Vertical reading scrolls the whole mushaf; otherwise each page scrolls on its own.
+    const scroller = this.host.nativeElement.closest<HTMLElement>(this.flow() ? '.pager' : '.slide');
     if (!scroller) return;
     const view = scroller.getBoundingClientRect();
     const box = el.getBoundingClientRect();
@@ -171,6 +178,13 @@ export class MushafPage {
     const slide = host.closest<HTMLElement>('.slide');
     const sheet = host.querySelector<HTMLElement>('.sheet');
     if (!slide || !sheet || !this.data()) return;
+    if (this.flow()) {
+      // One size for every page of the scroll: the reading size of the device, then the reader's zoom.
+      host.style.setProperty('--fit', String(slide.clientWidth >= WIDE ? FLOW_FIT_WIDE : FIT_MIN));
+      host.style.setProperty('--scale', String(this.fontScale()));
+      host.classList.add('fitted');
+      return;
+    }
     const cs = getComputedStyle(slide);
     const available = slide.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
     if (available <= 0) return;

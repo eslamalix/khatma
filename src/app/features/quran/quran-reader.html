@@ -53,17 +53,19 @@
   (scroll)="onScroll()" (click)="onTap()" (wheel)="onWheel($event)"
   (touchstart)="onTouchStart($event)" (touchmove)="onTouchMove($event)" (touchend)="onTouchEnd()"
   (touchcancel)="onTouchEnd()">
-  <div class="track"
-    [style.width.px]="readingMode() === 'horizontal' ? width() * unitCount() : width()"
-    [style.height.px]="readingMode() === 'vertical' ? height() * unitCount() : null">
+  <div #track class="track"
+    [style.width.px]="flow() ? width() : width() * unitCount()"
+    [style.height.px]="flow() ? flowHeight() : null">
     @for (slide of slides(); track slide.unit) {
-      <div class="slide" [class.spread]="slide.pages.length > 1"
+      <div class="slide" [class.spread]="slide.pages.length > 1" [class.flow]="flow()"
+        [attr.data-page]="slide.pages[0]"
         [style.width.px]="width()"
-        [style.inset-inline-start.px]="readingMode() === 'horizontal' ? slideOffset(slide.unit) : null"
-        [style.top.px]="readingMode() === 'vertical' ? slideOffsetVertical(slide.unit) : null">
+        [style.inset-inline-start.px]="flow() ? null : slideOffset(slide.unit)"
+        [style.top.px]="flow() ? flowTop(slide.unit) : null">
         @for (p of slide.pages; track p) {
           <app-mushaf-page
             [page]="p"
+            [flow]="flow()"
             [fontScale]="scale()"
             [selectedRange]="selectedRange()"
             [playingAyah]="audio.current()"
