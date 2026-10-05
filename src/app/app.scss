@@ -18,6 +18,8 @@
   padding-bottom: var(--tabbar-h);
   margin-inline-start: var(--sidebar-w);
 }
+/* Room for the radio bar, so it never hides the end of a page. */
+.shell.has-radio .content { padding-bottom: calc(var(--tabbar-h) + 64px); }
 
 /* Phone: bottom tab bar — 4 ergonomic destinations */
 .tabbar {
