@@ -25,6 +25,8 @@ const PATHS = {
   copy: '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
   sliders: '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
   play: '<path d="M8 5.8v12.4a.9.9 0 0 0 1.36.77l10.1-6.2a.9.9 0 0 0 0-1.54L9.36 5.03A.9.9 0 0 0 8 5.8z" fill="currentColor" stroke="none"/>',
+  stop: '<rect x="6.5" y="6.5" width="11" height="11" rx="2.2" fill="currentColor" stroke="none"/>',
+  radio: '<rect x="3.5" y="9" width="17" height="11.5" rx="2.5"/><path d="M7.5 9l9-5"/><circle cx="15.5" cy="14.75" r="2.6"/><path d="M7 13h3.5M7 16.5h3.5"/>',
   pause: '<rect x="6.5" y="5" width="4" height="14" rx="1.3" fill="currentColor" stroke="none"/><rect x="13.5" y="5" width="4" height="14" rx="1.3" fill="currentColor" stroke="none"/>',
   skipLeft: '<path d="M17.5 6.6v10.8a.8.8 0 0 1-1.24.67L8.9 12.67a.8.8 0 0 1 0-1.34l7.36-5.4a.8.8 0 0 1 1.24.67z" fill="currentColor" stroke="none"/><rect x="5.5" y="6" width="2.2" height="12" rx="1.1" fill="currentColor" stroke="none"/>',
   skipRight: '<path d="M6.5 6.6v10.8a.8.8 0 0 0 1.24.67l7.36-5.4a.8.8 0 0 0 0-1.34L7.74 5.93A.8.8 0 0 0 6.5 6.6z" fill="currentColor" stroke="none"/><rect x="16.3" y="6" width="2.2" height="12" rx="1.1" fill="currentColor" stroke="none"/>',

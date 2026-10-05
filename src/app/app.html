@@ -1,4 +1,4 @@
-<div class="shell" [class.is-quran]="isQuran()">
+<div class="shell" [class.is-quran]="isQuran()" [class.has-radio]="showRadioBar()">
   <div class="global-account-wrapper">
     <app-account />
   </div>
@@ -14,11 +14,19 @@
         <span>{{ item.label }}</span>
       </a>
     }
+    <button type="button" class="side-link tour-link" (click)="onboarding.replay()" title="جولة التطبيق">
+      <app-icon name="bolt" [size]="22" [stroke]="1.7" />
+      <span>جولة التطبيق</span>
+    </button>
   </nav>
 
   <main class="content">
     <router-outlet />
   </main>
+
+  @if (showRadioBar()) {
+    <app-radio-bar />
+  }
 
   <nav class="tabbar" aria-label="التنقل">
     @for (item of tabs; track item.path) {
@@ -48,6 +56,14 @@
         <app-icon name="stats" [size]="22" [stroke]="1.7" />
         <span>الإحصائيات</span>
       </a>
+      <button type="button" class="menu-item" (click)="replayTour()">
+        <app-icon name="bolt" [size]="22" [stroke]="1.7" />
+        <span>جولة التطبيق</span>
+      </button>
     </div>
   </app-sheet>
+
+  @if (onboarding.welcomeOpen()) {
+    <app-welcome />
+  }
 </div>

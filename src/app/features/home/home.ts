@@ -8,6 +8,7 @@ import { ar, counted, DAYS, hijriDate, hoursAndMinutes, MINUTES, ordinal, PAGES,
 import { surahAtPage, surahName, TOTAL_PAGES } from '../../core/quran/quran-meta';
 import { Icon } from '../../ui/icon';
 import { Sheet } from '../../ui/sheet';
+import { RadioCard } from '../radio/radio-card';
 
 const RING_R = 52;
 const RING_C = 2 * Math.PI * RING_R;
@@ -18,7 +19,7 @@ const RING_C = 2 * Math.PI * RING_R;
  */
 @Component({
   selector: 'app-home',
-  imports: [RouterLink, Icon, Sheet],
+  imports: [RouterLink, Icon, Sheet, RadioCard],
   templateUrl: './home.html',
   styleUrl: './home.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

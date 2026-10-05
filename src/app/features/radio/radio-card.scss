@@ -1,0 +1,88 @@
+:host { display: block; }
+
+.radio { padding: 16px 16px 14px; }
+
+.head { display: flex; align-items: center; gap: 10px; }
+.mark {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.title { margin: 0; flex: 1; min-width: 0; font-size: 16px; font-weight: 700; }
+
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  i { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); }
+  &.on {
+    color: var(--ink);
+    i { background: #d64535; animation: pulse 1.6s var(--ease) infinite; }
+  }
+}
+
+.stations { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.station {
+  min-height: 60px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: start;
+  background: var(--fill);
+  border: 1.5px solid transparent;
+  color: var(--ink);
+  transition: background 0.2s var(--ease), border-color 0.2s var(--ease), transform 0.15s var(--ease);
+  &:active { transform: scale(0.97); }
+  &.on { background: var(--accent-soft); border-color: var(--accent); }
+}
+
+.btn {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.name { font-size: 15.5px; font-weight: 700; }
+.sub { font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
+.station.on .sub { color: var(--accent); font-weight: 600; }
+
+/* Connecting: three dots that light up one after another, slowly and without spinning. */
+.dots {
+  display: flex;
+  gap: 4px;
+  i {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.3;
+    animation: glow 1.8s ease-in-out infinite;
+  }
+  i:nth-child(2) { animation-delay: 0.3s; }
+  i:nth-child(3) { animation-delay: 0.6s; }
+}
+
+@keyframes glow { 30% { opacity: 1; } 60%, 100% { opacity: 0.3; } }
+@keyframes pulse { 50% { opacity: 0.35; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .live.on i { animation: none; }
+  .dots i { animation: none; opacity: 0.8; }
+}

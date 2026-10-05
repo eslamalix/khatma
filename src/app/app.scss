@@ -18,6 +18,8 @@
   padding-bottom: var(--tabbar-h);
   margin-inline-start: var(--sidebar-w);
 }
+/* Room for the radio bar, so it never hides the end of a page. */
+.shell.has-radio .content { padding-bottom: calc(var(--tabbar-h) + 64px); }
 
 /* Phone: bottom tab bar — 4 ergonomic destinations */
 .tabbar {
@@ -129,3 +131,7 @@
   &:hover { background: color-mix(in srgb, var(--fill) 85%, var(--ink) 15%); }
   &:active { transform: scale(0.98); }
 }
+
+/* "جولة التطبيق" sits at the foot of the sidebar, away from the screens. */
+.tour-link { margin-top: auto; }
+button.menu-item { width: 100%; text-align: start; }

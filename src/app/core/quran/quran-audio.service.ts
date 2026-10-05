@@ -231,6 +231,8 @@ export class QuranAudioService {
     this.expectedSrc = ayahAudioUrl(this.reciter(), step.basmala ? { surah: 1, ayah: 1 } : step.ayah);
     a.src = this.expectedSrc;
     a.defaultPlaybackRate = a.playbackRate = this.rate();
+    // The radio may have taken the lock-screen controls since; take them back.
+    this.bindMediaSession();
     this.updateMediaSession();
     this.start();
     this.preloadNext(step);
