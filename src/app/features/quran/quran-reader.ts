@@ -49,8 +49,8 @@ import { Tip, TipLine } from '../../ui/tip';
 const WINDOW = 2;
 const SETTLE_MS = 140;
 const TAFSIR_MAX_AYAHS = 10;
-/** Wide enough (and landscape) for two facing pages, like an open mushaf on a desk. */
-const SPREAD_MIN_WIDTH = 900;
+/** Reader width that gives each of two facing pages room for a readable text size (about 600px each). */
+const SPREAD_MIN_WIDTH = 1400;
 /** Device preference: two facing pages on wide screens (on unless turned off). */
 const SPREAD_KEY = 'khatma.spread';
 
@@ -313,7 +313,15 @@ export class QuranReader {
   private turningTo: number | null = null;
   private pinch: { distance: number; scale: number } | null = null;
   protected readonly liveScale = signal<number | null>(null);
-  protected readonly scale = computed(() => this.liveScale() ?? this.store.state().fontScale);
+  /**
+   * Page by page, the text is already sized to fill the page, so zoom can only enlarge it: below 100% it would
+   * just leave the lower part of the page empty. Vertical reading is not fitted, so it can still shrink.
+   */
+  private readonly zoomFloor = computed(() => (this.flow() ? 0.7 : 1));
+  protected readonly scale = computed(() =>
+    Math.max(this.zoomFloor(), this.liveScale() ?? this.store.state().fontScale),
+  );
+  protected readonly atZoomFloor = computed(() => this.scale() <= this.zoomFloor());
   protected readonly scalePct = computed(() => percent(this.scale()));
 
   constructor() {
@@ -988,30 +996,34 @@ export class QuranReader {
 
   protected zoom(delta: number, event?: Event) {
     event?.preventDefault();
-    this.store.setFontScale(this.store.state().fontScale + delta);
+    this.setScale(this.scale() + delta);
+  }
+
+  private setScale(value: number) {
+    this.store.setFontScale(Math.max(this.zoomFloor(), value));
   }
 
   protected onWheel(event: WheelEvent) {
     if (!event.ctrlKey) return;
     event.preventDefault();
-    this.store.setFontScale(this.store.state().fontScale * (1 - event.deltaY / 500));
+    this.setScale(this.scale() * (1 - event.deltaY / 500));
   }
 
   protected onTouchStart(event: TouchEvent) {
-    if (event.touches.length === 2) this.pinch = { distance: touchDistance(event), scale: this.store.state().fontScale };
+    if (event.touches.length === 2) this.pinch = { distance: touchDistance(event), scale: this.scale() };
   }
 
   protected onTouchMove(event: TouchEvent) {
     if (!this.pinch || event.touches.length !== 2) return;
     const next = this.pinch.scale * (touchDistance(event) / this.pinch.distance);
-    this.liveScale.set(Math.min(2, Math.max(0.7, next)));
+    this.liveScale.set(Math.min(2, Math.max(this.zoomFloor(), next)));
   }
 
   protected onTouchEnd() {
     if (!this.pinch) return;
     this.pinch = null;
     const live = this.liveScale();
-    if (live !== null) this.store.setFontScale(live);
+    if (live !== null) this.setScale(live);
     this.liveScale.set(null);
   }
 

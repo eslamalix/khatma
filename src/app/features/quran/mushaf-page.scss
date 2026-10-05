@@ -45,6 +45,10 @@
     &::before { inset: 12px; opacity: 0.7; }
     &::after { inset: 16px; opacity: 0.35; }
   }
+  /* A single page on a big screen is wider, so a whole page still fits the height at a comfortable size. */
+  @media (min-width: 1100px) {
+    :host(:not(.flow)) & { max-width: 880px; }
+  }
 }
 
 /* Surah header: a quiet cartouche, name in the Quran face, order and ayah count at its sides. */
@@ -54,8 +58,9 @@
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 8px;
-  min-height: calc(50px * max(1, var(--size) * 0.9));
-  margin: 12px 0 6px;
+  /* Scales with the text both ways, so a page of short surahs (three headers) still fits on a laptop. */
+  min-height: calc(50px * max(0.72, var(--size) * 0.9));
+  margin: calc(12px * min(1, var(--size))) 0 calc(6px * min(1, var(--size)));
   padding: 0 14px;
   border: 1px solid var(--q-gold-line);
   border-radius: 14px;
@@ -90,7 +95,7 @@
 }
 
 .basmala {
-  margin: 8px 0 2px;
+  margin: calc(8px * min(1, var(--size))) 0 2px;
   text-align: center;
   font-family: var(--font-quran);
   font-size: calc(23px * var(--size));

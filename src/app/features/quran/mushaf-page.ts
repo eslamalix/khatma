@@ -20,12 +20,31 @@ import { AyahMark, ayahKey } from '../../core/tadabbur/tadabbur';
 
 /** How far a page may grow or shrink its text to fill the screen before the reader's own zoom applies. */
 const FIT_MIN = 0.9;
-const FIT_MAX = 1.35;
+const FIT_MAX = 1.5;
+/** On a wide screen a page is width-limited, so its text may grow further to fill the height. */
+const FIT_MAX_WIDE = 1.9;
 /** Wide screens show the whole page at once, like a printed mushaf, so the text may shrink further. */
-const FIT_MIN_WIDE = 0.72;
+const FIT_MIN_WIDE = 0.58;
 const WIDE = 768;
 /** Vertical reading on a wide screen: one page in the middle, at a comfortable size. */
 const FLOW_FIT_WIDE = 1;
+
+let quranFontLoad: Promise<unknown> | undefined;
+/** Resolves when the Quran face (every part of it the pages use) is loaded; never rejects. */
+const quranFont = () =>
+  (quranFontLoad ??= (document.fonts
+    ? Promise.all([
+        document.fonts.load('28px "Amiri Quran"', 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ ۝١٢٣'),
+        document.fonts.load('28px "Amiri Quran"', 'ٱلْحَمْدُ'),
+      ]).catch(() => undefined)
+    : Promise.resolve()));
+
+/** Height of a page's blocks (headers and text), without the page number. */
+const textHeight = (page: HTMLElement) => {
+  let sum = 0;
+  for (const el of page.querySelectorAll<HTMLElement>('.sheet > :not(.page-no)')) sum += el.offsetHeight;
+  return sum;
+};
 
 type Block = { kind: 'header'; surah: number; basmala: boolean } | { kind: 'text'; ayahs: QuranAyah[] };
 
@@ -38,7 +57,7 @@ type Block = { kind: 'header'; surah: number; basmala: boolean } | { kind: 'text
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mushaf-page.html',
   styleUrl: './mushaf-page.scss',
-  host: { '[style.--scale]': 'fontScale()', '[class.opening]': 'page() <= 2' },
+  host: { '[style.--scale]': 'fontScale()', '[class.opening]': 'page() <= 2', '[class.flow]': 'flow()' },
 })
 export class MushafPage {
   private readonly pages = inject(QuranPages);
@@ -143,20 +162,36 @@ export class MushafPage {
     effect(() => {
       this.markMode();
       this.flow();
-      if (this.data()) afterNextRender(() => this.fit(), { injector: this.injector });
+      if (this.data()) {
+        afterNextRender(
+          () => {
+            this.fit();
+            this.watchText();
+          },
+          { injector: this.injector },
+        );
+      }
     });
     afterNextRender(() => {
       const slide = this.host.nativeElement.closest<HTMLElement>('.slide');
       if (!slide) return;
-      // Border box only: the extra scroll room added for toolbars must not re-fit the text.
+      // The slide's box and the room inside its padding (tadabbur's strip takes some), never its scroll
+      // height: the extra scroll room added under the page for toolbars must not re-fit the text.
       let last = '';
       const observer = new ResizeObserver(([entry]) => {
-        const size = `${Math.round(entry.borderBoxSize[0].inlineSize)}x${Math.round(entry.borderBoxSize[0].blockSize)}`;
+        const b = entry.borderBoxSize[0];
+        const c = entry.contentBoxSize[0];
+        const size = [b.inlineSize, b.blockSize, c.blockSize].map(Math.round).join('x');
         if (size !== last && last) this.fit();
         last = size;
       });
-      observer.observe(slide, { box: 'border-box' });
+      observer.observe(slide, { box: 'content-box' });
       document.fonts?.ready.then(() => this.fit());
+      // The Quran face is fetched when the first page is drawn, so it can arrive after `ready` has resolved;
+      // sizing the text against the fallback face's metrics would leave the page half empty.
+      const refit = () => this.fit();
+      document.fonts?.addEventListener('loadingdone', refit);
+      this.injector.get(DestroyRef).onDestroy(() => document.fonts?.removeEventListener('loadingdone', refit));
       this.injector.get(DestroyRef).onDestroy(() => observer.disconnect());
     });
   }
@@ -172,8 +207,35 @@ export class MushafPage {
     scroller.scrollBy({ top: box.top - view.top - view.height * 0.3, behavior: 'smooth' });
   }
 
+  private fontReady = false;
+  private textObserver?: ResizeObserver;
+
+  /**
+   * The text can change its height while the slide keeps its size (the Quran face arriving after the first
+   * measure, a page drawn late in a background tab). Fit again when the blocks no longer match what the last
+   * fit left them at (kept on the element, as facing pages are fitted together).
+   */
+  private watchText() {
+    this.textObserver?.disconnect();
+    this.textObserver ??= new ResizeObserver(() => {
+      const host = this.host.nativeElement;
+      if (Math.abs(textHeight(host) - Number(host.dataset['fittedHeight'] ?? 0)) > 2) this.fit();
+    });
+    for (const el of this.host.nativeElement.querySelectorAll<HTMLElement>('.sheet > :not(.page-no)')) this.textObserver.observe(el);
+    this.injector.get(DestroyRef).onDestroy(() => this.textObserver?.disconnect());
+  }
+
   /** Largest text size (within FIT_MIN..FIT_MAX, at 100% zoom) whose page fits the visible height. */
   private fit() {
+    // Sized only once the Quran face has arrived: against the fallback face the text is far taller, and the
+    // page would settle at the smallest size and stay half empty.
+    if (!this.fontReady) {
+      void quranFont().then(() => {
+        this.fontReady = true;
+        this.fit();
+      });
+      return;
+    }
     const host = this.host.nativeElement;
     const slide = host.closest<HTMLElement>('.slide');
     const sheet = host.querySelector<HTMLElement>('.sheet');
@@ -183,6 +245,7 @@ export class MushafPage {
       host.style.setProperty('--fit', String(slide.clientWidth >= WIDE ? FLOW_FIT_WIDE : FIT_MIN));
       host.style.setProperty('--scale', String(this.fontScale()));
       host.classList.add('fitted');
+      requestAnimationFrame(() => (host.dataset['fittedHeight'] = String(textHeight(host))));
       return;
     }
     const cs = getComputedStyle(slide);
@@ -191,35 +254,49 @@ export class MushafPage {
 
     const scrollTop = slide.scrollTop;
     const margins = parseFloat(getComputedStyle(sheet).marginTop) * 2;
-    host.style.setProperty('--scale', '1');
-    // Measured at its own height, not stretched to the screen.
-    sheet.style.flex = 'none';
+    // Measured on fresh copies of the page, never by resizing the live one: Chromium restyles the paragraph
+    // at once but leaves the ayahs inside it at their old size until the next frame, so a live page measured
+    // mid-search reports heights that belong to neither size, and the page settled far too small or too large.
+    const probe = host.cloneNode(false) as HTMLElement;
+    probe.removeAttribute('id');
+    probe.setAttribute('aria-hidden', 'true');
+    probe.style.cssText = `position:absolute;top:0;left:0;width:${host.offsetWidth}px;min-height:0;visibility:hidden;pointer-events:none;--scale:1`;
+    slide.append(probe);
     const fits = (f: number) => {
-      host.style.setProperty('--fit', f.toFixed(3));
-      return sheet.offsetHeight + margins <= available;
+      probe.style.setProperty('--fit', f.toFixed(3));
+      const copy = sheet.cloneNode(true) as HTMLElement;
+      copy.style.flex = 'none';
+      probe.replaceChildren(copy);
+      return copy.offsetHeight + margins <= available;
     };
 
-    const min = slide.clientWidth >= WIDE ? FIT_MIN_WIDE : FIT_MIN;
+    const wide = slide.clientWidth >= WIDE;
+    const min = wide ? FIT_MIN_WIDE : FIT_MIN;
+    const max = wide ? FIT_MAX_WIDE : FIT_MAX;
     let best = min;
-    if (fits(FIT_MAX)) best = FIT_MAX;
+    if (fits(max)) best = max;
     else if (fits(min)) {
-      let hi = FIT_MAX;
+      let hi = max;
       for (let i = 0; i < 7; i++) {
         const mid = (best + hi) / 2;
         if (fits(mid)) best = mid;
         else hi = mid;
       }
     }
+    probe.remove();
 
     // Facing pages share one size, the smaller of the two, so the spread reads as one mushaf.
     host.dataset['fit'] = String(best);
     const pages = [...slide.querySelectorAll<HTMLElement>('app-mushaf-page')];
     const shared = Math.min(...pages.map((p) => Number(p.dataset['fit']) || best));
     for (const p of pages) p.style.setProperty('--fit', shared.toFixed(3));
-    sheet.style.flex = '';
     host.style.setProperty('--scale', String(this.fontScale()));
     slide.scrollTop = scrollTop;
     host.classList.add('fitted');
+    // Recorded once the new size has been drawn (see above: the ayahs follow a frame later).
+    requestAnimationFrame(() => {
+      for (const p of pages) p.dataset['fittedHeight'] = String(textHeight(p));
+    });
   }
 
   protected load(page = this.page()) {

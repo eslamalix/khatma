@@ -356,7 +356,7 @@
     <section class="settings-group">
       <h4 class="settings-title">حجم الخط</h4>
       <div class="text-controls">
-        <button type="button" (click)="zoom(-0.1)" aria-label="تصغير"><app-icon name="minus" [size]="20" [stroke]="2" /></button>
+        <button type="button" (click)="zoom(-0.1)" [disabled]="atZoomFloor()" aria-label="تصغير"><app-icon name="minus" [size]="20" [stroke]="2" /></button>
         <span class="scale">{{ scalePct() }}</span>
         <button type="button" (click)="zoom(0.1)" aria-label="تكبير"><app-icon name="plus" [size]="20" [stroke]="2" /></button>
       </div>
