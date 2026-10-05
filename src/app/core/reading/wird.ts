@@ -1,7 +1,7 @@
 import { toDateStr } from '../calendar/calendar-data';
 import { Reading } from './reading';
 
-export const WIRD_PRESETS = [2, 5, 10, 20] as const;
+export const WIRD_PRESETS = [1, 2, 5, 10] as const;
 
 export interface WirdToday {
   goal: number;

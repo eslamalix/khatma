@@ -114,7 +114,7 @@ export class Home {
   }
 
   protected presetLabel(pages: number) {
-    return pages === 20 ? 'جزء تقريباً' : pages === 2 ? 'صفحتان' : 'صفحات';
+    return this.pagesNoun(pages);
   }
 
   protected presetMinutes(pages: number) {
