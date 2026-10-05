@@ -136,3 +136,6 @@
   .primary { background: var(--accent); color: var(--on-accent); }
   .secondary { background: var(--fill); }
 }
+
+/* Clear of the corner buttons (theme and account). */
+.head { padding-inline-end: var(--corner-clear); }

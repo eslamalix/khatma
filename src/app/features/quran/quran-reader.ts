@@ -34,7 +34,7 @@ import { Sheet } from '../../ui/sheet';
 import { MushafPage } from './mushaf-page';
 import { QuranAyah } from '../../core/quran/quran-page';
 import { AwradStore } from '../../core/awrad/awrad.store';
-import { BackgroundTheme, ReadingMode } from '../../core/reading/reading';
+import { ReadingMode } from '../../core/reading/reading';
 
 import { QuranAudioService } from '../../core/quran/quran-audio.service';
 import { TafsirService } from '../../core/quran/tafsir.service';
@@ -43,6 +43,7 @@ import { TadabburStore } from '../../core/tadabbur/tadabbur.store';
 import { CardAyah, parseAyahRange, Reflection } from '../../core/tadabbur/tadabbur';
 import { labelOf, ReflectionSheet } from '../tadabbur/reflection-sheet';
 import { CollectSheet } from '../tadabbur/collect-sheet';
+import { ThemePicker } from '../../ui/theme-picker';
 import { Onboarding } from '../../core/onboarding/onboarding';
 import { Tip, TipLine } from '../../ui/tip';
 
@@ -73,7 +74,7 @@ export interface AyahRangeSelection {
 
 @Component({
   selector: 'app-quran-reader',
-  imports: [MushafPage, Icon, Sheet, FormsModule, QuranPlayer, ReflectionSheet, CollectSheet, RouterLink, Tip],
+  imports: [ThemePicker, MushafPage, Icon, Sheet, FormsModule, QuranPlayer, ReflectionSheet, CollectSheet, RouterLink, Tip],
   templateUrl: './quran-reader.html',
   styleUrl: './quran-reader.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -235,7 +236,6 @@ export class QuranReader {
   protected readonly settingsOpen = signal(false);
 
   // Settings
-  protected readonly backgroundTheme = computed(() => this.store.state().backgroundTheme);
   protected readonly readingMode = computed(() => this.store.state().readingMode);
 
   // Multiple Ayah Selection & Groups
@@ -591,10 +591,6 @@ export class QuranReader {
   protected openJump(tab: JumpTab) {
     this.jumpTab.set(tab);
     this.jumpOpen.set(true);
-  }
-
-  protected setBackgroundTheme(theme: BackgroundTheme) {
-    this.store.setBackgroundTheme(theme);
   }
 
   protected setReadingMode(mode: ReadingMode) {

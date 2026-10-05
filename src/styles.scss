@@ -56,31 +56,42 @@
   --sidebar-w: 0px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    @include tadabbur-dark;
-    --bg: #141413;
-    --paper: #171715;
-    --sheet: #1c1c1a;
-    --card: #1f1f1d;
-    --card-frost: rgba(31, 31, 29, 0.72);
-    --ink: #edebe6;
-    --ink-2: #bdb8ae;
-    --ink-3: #98938a;
-    --line: rgba(255, 255, 255, 0.08);
-    --track: #2a2a27;
-    --fill: rgba(255, 255, 255, 0.06);
-    --accent: #6fb59a;
-    --accent-strong: #8cc9b1;
-    --accent-soft: rgba(111, 181, 154, 0.14);
-    --on-accent: #0f1a16;
-    --warm: #d48a6c;
-    --counter: rgba(111, 181, 154, 0.08);
-    --chrome: rgba(20, 20, 19, 0.86);
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
-    --shadow-float: 0 8px 24px rgba(0, 0, 0, 0.5);
-  }
+/* Dark palette of the whole app (the mushaf has its own below). */
+@mixin app-dark {
+  color-scheme: dark;
+  @include tadabbur-dark;
+  --bg: #141413;
+  --paper: #171715;
+  --sheet: #1c1c1a;
+  --card: #1f1f1d;
+  --card-frost: rgba(31, 31, 29, 0.72);
+  --ink: #edebe6;
+  --ink-2: #bdb8ae;
+  --ink-3: #98938a;
+  --line: rgba(255, 255, 255, 0.08);
+  --track: #2a2a27;
+  --fill: rgba(255, 255, 255, 0.06);
+  --accent: #6fb59a;
+  --accent-strong: #8cc9b1;
+  --accent-soft: rgba(111, 181, 154, 0.14);
+  --on-accent: #0f1a16;
+  --warm: #d48a6c;
+  --counter: rgba(111, 181, 154, 0.08);
+  --chrome: rgba(20, 20, 19, 0.86);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+  --shadow-float: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
+
+/*
+ * The reader's theme choice (`data-theme` on <html>, kept in the reading state) applies to every screen:
+ * "auto" follows the system, cream and white keep the app light, dark keeps it dark.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='cream']):not([data-theme='white']) { @include app-dark; }
+}
+:root[data-theme='dark'] { @include app-dark; }
+:root[data-theme='cream'],
+:root[data-theme='white'] { color-scheme: light; }
 
 /*
  * Mushaf reading themes. Each one is a complete palette (page, Quran text, gold ornaments,
@@ -180,8 +191,10 @@ app-quran-reader[data-theme='dark'] { @include mushaf-dark; }
   .shell:has(app-quran-reader[data-theme='auto']) { @include mushaf-dark; }
 }
 
+/* Room a page header leaves at its left end for the corner buttons (theme and account). */
+:root { --corner-clear: 94px; }
 @media (min-width: 768px) {
-  :root { --tabbar-h: 0px; --sidebar-w: 76px; }
+  :root { --tabbar-h: 0px; --sidebar-w: 76px; --corner-clear: 56px; }
 }
 @media (min-width: 1200px) {
   :root { --sidebar-w: 240px; }

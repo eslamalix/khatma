@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { IsActiveMatchOptions, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Icon, IconName } from './ui/icon';
 import { Sheet } from './ui/sheet';
@@ -7,6 +7,7 @@ import { RadioService } from './core/radio/radio.service';
 import { Account } from './features/account/account';
 import { RadioBar } from './features/radio/radio-bar';
 import { Welcome } from './ui/welcome';
+import { ThemeToggle } from './ui/theme-picker';
 import { Onboarding } from './core/onboarding/onboarding';
 
 interface NavItem {
@@ -23,9 +24,12 @@ const TADABBUR: NavItem = { path: '/tadabbur', label: 'التدبر', icon: 'lam
 const STATS: NavItem = { path: '/stats', label: 'الإحصائيات', icon: 'stats' };
 const CALENDAR: NavItem = { path: '/calendar', label: 'التقويم', icon: 'calendar' };
 
+/** Read by the inline script in index.html; keep the two in step. */
+const THEME_KEY = 'khatma.theme';
+
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, Sheet, Account, RadioBar, Welcome],
+  imports: [ThemeToggle, RouterOutlet, RouterLink, RouterLinkActive, Icon, Sheet, Account, RadioBar, Welcome],
   templateUrl: './app.html',
   styleUrl: './app.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -36,6 +40,7 @@ export class App {
   private readonly router = inject(Router);
   
   protected readonly onboarding = inject(Onboarding);
+  private readonly storeReady = signal(false);
   readonly moreOpen = signal(false);
   readonly isQuran = signal(false);
   readonly isHome = signal(true);
@@ -54,7 +59,22 @@ export class App {
     });
     track(this.router.url);
     // A first open, before any reading: a short welcome.
-    void this.store.whenReady().then(() => this.onboarding.maybeWelcome(this.store.state().lastReadAt !== null));
+    void this.store.whenReady().then(() => {
+      this.storeReady.set(true);
+      this.onboarding.maybeWelcome(this.store.state().lastReadAt !== null);
+    });
+    // The chosen theme dresses every screen. Remembered on the device too, so index.html can put it on
+    // before the app starts and a dark choice never flashes light.
+    effect(() => {
+      if (!this.storeReady()) return;
+      const theme = this.store.state().backgroundTheme;
+      document.documentElement.dataset['theme'] = theme;
+      try {
+        localStorage.setItem(THEME_KEY, theme);
+      } catch {
+        // Only saves a flash on the next start.
+      }
+    });
   }
 
   protected replayTour() {

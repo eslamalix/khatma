@@ -1,17 +1,10 @@
 :host {
+  /* Mixed from the theme's own colours, so the heatmap follows whichever theme is chosen. */
   --heat-0: var(--track);
-  --heat-1: #d3e4dc;
-  --heat-2: #a8cbbb;
-  --heat-3: #6fa68e;
+  --heat-1: color-mix(in srgb, var(--accent) 22%, var(--bg));
+  --heat-2: color-mix(in srgb, var(--accent) 45%, var(--bg));
+  --heat-3: color-mix(in srgb, var(--accent) 72%, var(--bg));
   --heat-4: var(--accent);
-}
-
-@media (prefers-color-scheme: dark) {
-  :host {
-    --heat-1: rgba(111, 181, 154, 0.22);
-    --heat-2: rgba(111, 181, 154, 0.45);
-    --heat-3: rgba(111, 181, 154, 0.72);
-  }
 }
 
 .calendar-page {
@@ -508,3 +501,6 @@
     }
   }
 }
+
+/* Clear of the corner buttons (theme and account). */
+.page-header { padding-inline-end: var(--corner-clear); }

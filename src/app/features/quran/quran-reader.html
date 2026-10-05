@@ -301,37 +301,8 @@
 <app-sheet [open]="settingsOpen()" title="إعدادات القراءة" (closed)="settingsOpen.set(false)">
   <div class="settings-sheet">
     <section class="settings-group">
-      <h4 class="settings-title">خلفية المصحف</h4>
-      <div class="theme-grid">
-        <button type="button" class="theme-swatch" [class.active]="backgroundTheme() === 'auto'" (click)="setBackgroundTheme('auto')">
-          <span class="swatch-preview" style="background: linear-gradient(135deg, #faf6ec 50%, #161512 50%)"></span>
-          <span class="swatch-name">تلقائي</span>
-          @if (backgroundTheme() === 'auto') {
-            <span class="swatch-check"><app-icon name="check" [size]="14" [stroke]="2.5" /></span>
-          }
-        </button>
-        <button type="button" class="theme-swatch" [class.active]="backgroundTheme() === 'cream'" (click)="setBackgroundTheme('cream')">
-          <span class="swatch-preview" style="background: #faf6ec"></span>
-          <span class="swatch-name">كريمي</span>
-          @if (backgroundTheme() === 'cream') {
-            <span class="swatch-check"><app-icon name="check" [size]="14" [stroke]="2.5" /></span>
-          }
-        </button>
-        <button type="button" class="theme-swatch" [class.active]="backgroundTheme() === 'white'" (click)="setBackgroundTheme('white')">
-          <span class="swatch-preview" style="background: #ffffff"></span>
-          <span class="swatch-name">أبيض</span>
-          @if (backgroundTheme() === 'white') {
-            <span class="swatch-check"><app-icon name="check" [size]="14" [stroke]="2.5" /></span>
-          }
-        </button>
-        <button type="button" class="theme-swatch" [class.active]="backgroundTheme() === 'dark'" (click)="setBackgroundTheme('dark')">
-          <span class="swatch-preview" style="background: #161512"></span>
-          <span class="swatch-name">داكن</span>
-          @if (backgroundTheme() === 'dark') {
-            <span class="swatch-check"><app-icon name="check" [size]="14" [stroke]="2.5" /></span>
-          }
-        </button>
-      </div>
+      <h4 class="settings-title">المظهر</h4>
+      <app-theme-picker />
     </section>
 
 

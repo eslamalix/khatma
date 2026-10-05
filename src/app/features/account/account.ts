@@ -3,11 +3,12 @@ import { CloudSync } from '../../core/sync/cloud-sync';
 import packageJson from '../../../../package.json';
 import { Icon } from '../../ui/icon';
 import { Sheet } from '../../ui/sheet';
+import { ThemePicker } from '../../ui/theme-picker';
 
 /** Avatar button + sheet: keep the khatmas in a Google account, or see which account they are in. */
 @Component({
   selector: 'app-account',
-  imports: [Icon, Sheet],
+  imports: [Icon, Sheet, ThemePicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <button type="button" class="avatar-btn" (click)="open.set(true)" [attr.aria-label]="signedIn() ? 'حسابك' : 'احفظ بياناتك في حساب'">
@@ -66,6 +67,10 @@ import { Sheet } from '../../ui/sheet';
         @if (error()) {
           <p class="error" role="alert">{{ error() }}</p>
         }
+        <section class="appearance">
+          <h4>المظهر</h4>
+          <app-theme-picker />
+        </section>
         <p class="fine version-text" dir="ltr" style="text-align: center; margin-top: 2rem; opacity: 0.5;">v{{ version }}</p>
       </div>
     </app-sheet>
@@ -107,6 +112,8 @@ import { Sheet } from '../../ui/sheet';
     .note { margin: 0; display: flex; gap: 6px; align-items: flex-start; font-size: 14.5px; line-height: 1.6; }
     .ok { color: var(--accent); }
     .secondary { height: 48px; border-radius: 14px; background: var(--fill); color: var(--ink); font-size: 15px; font-weight: 600; }
+    .appearance { margin-top: 12px; padding-top: 18px; border-top: 1px solid var(--line); }
+    .appearance h4 { margin: 0 0 10px; font-size: 14px; font-weight: 700; color: var(--ink-2); }
     .fine { margin: 0; font-size: 13px; color: var(--ink-2); text-align: center; }
     .warn { margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--fill); color: var(--ink); font-size: 14px; line-height: 1.7; }
     .danger {
