@@ -97,7 +97,6 @@ export class Home {
   protected readonly goalOpen = signal(false);
   protected readonly draftGoal = signal(5);
   protected readonly draftMinutes = computed(() => this.minutesFor(this.draftGoal()));
-  protected readonly draftFinish = computed(() => counted(daysAtWird(TOTAL_PAGES, this.draftGoal()), DAYS));
 
   protected openGoal() {
     this.draftGoal.set(this.store.state().dailyGoalPages ?? 5);
