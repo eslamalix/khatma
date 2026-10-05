@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 import { AdhkarToday } from '../../core/awrad/adhkar-today';
 import { BUILTIN_ADHKAR } from '../../core/awrad/awrad-data';
 import { ReadingStore } from '../../core/reading/reading.store';
-import { daysAtWird, WIRD_PRESETS } from '../../core/reading/wird';
+import { WIRD_PRESETS } from '../../core/reading/wird';
 import { ar, counted, DAYS, hijriDate, hoursAndMinutes, MINUTES, ordinal, PAGES, percent, weekdayDate } from '../../core/format';
 import { surahAtPage, surahName, TOTAL_PAGES } from '../../core/quran/quran-meta';
 import { Icon } from '../../ui/icon';
@@ -77,12 +77,6 @@ export class Home {
     const { hours, minutes } = hoursAndMinutes(this.k().remainingMs);
     return [hours, minutes].filter(Boolean).join(' و');
   });
-  protected readonly finishText = computed(() => {
-    const goal = this.store.state().dailyGoalPages;
-    if (!goal) return '';
-    return `بوردك تختمها خلال ${counted(daysAtWird(this.k().remainingPages, goal), DAYS)} بإذن الله.`;
-  });
-
   protected readonly insight = this.store.insight;
   protected readonly insightText = computed(() => {
     const i = this.insight();
