@@ -92,6 +92,7 @@ const SLIDES: readonly Slide[] = [
       overflow: hidden;
       padding: calc(12px + env(safe-area-inset-top)) 0 calc(20px + env(safe-area-inset-bottom));
       background: var(--bg);
+      color: var(--ink);
     }
     .skip {
       position: absolute;

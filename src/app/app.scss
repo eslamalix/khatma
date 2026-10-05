@@ -1,3 +1,9 @@
+.shell {
+  /* Text takes the shell's own theme: while reading, the shell wears the mushaf's palette, which can be
+     light under a dark system theme, and text inherited from <body> would come out pale on it. */
+  color: var(--ink);
+}
+
 .global-account-wrapper {
   position: absolute;
   top: calc(env(safe-area-inset-top, 0px) + 20px);
@@ -104,7 +110,7 @@
 @media (min-width: 1200px) {
   .sidebar { padding: 26px 14px; }
   .brand { justify-content: flex-start; padding: 0 8px; }
-  .brand-name { display: inline; font-size: 17px; font-weight: 700; }
+  .brand-name { display: inline; font-size: 17px; font-weight: 700; color: var(--ink); }
   .side-link { justify-content: flex-start; height: 42px; padding: 0 12px; span { display: inline; } }
 }
 
