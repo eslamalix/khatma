@@ -6,6 +6,8 @@ import { ReadingStore } from './core/reading/reading.store';
 import { RadioService } from './core/radio/radio.service';
 import { Account } from './features/account/account';
 import { RadioBar } from './features/radio/radio-bar';
+import { Welcome } from './ui/welcome';
+import { Onboarding } from './core/onboarding/onboarding';
 
 interface NavItem {
   path: string;
@@ -23,7 +25,7 @@ const CALENDAR: NavItem = { path: '/calendar', label: 'التقويم', icon: 'c
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, Sheet, Account, RadioBar],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, Sheet, Account, RadioBar, Welcome],
   templateUrl: './app.html',
   styleUrl: './app.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -33,6 +35,7 @@ export class App {
   private readonly store = inject(ReadingStore);
   private readonly router = inject(Router);
   
+  protected readonly onboarding = inject(Onboarding);
   readonly moreOpen = signal(false);
   readonly isQuran = signal(false);
   readonly isHome = signal(true);
@@ -50,6 +53,13 @@ export class App {
       if (e instanceof NavigationEnd) track(e.urlAfterRedirects);
     });
     track(this.router.url);
+    // A first open, before any reading: a short welcome.
+    void this.store.whenReady().then(() => this.onboarding.maybeWelcome(this.store.state().lastReadAt !== null));
+  }
+
+  protected replayTour() {
+    this.moreOpen.set(false);
+    this.onboarding.replay();
   }
 
   /** Phone tab bar: 5 thumb-friendly ergonomic items (RTL: rightmost is HOME). */
