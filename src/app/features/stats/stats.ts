@@ -1,13 +1,15 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ScrollingModule } from '@angular/cdk/scrolling';
+import { RouterLink } from '@angular/router';
 import { ReadingStore } from '../../core/reading/reading.store';
 import { PageRow } from '../../core/reading/kpi';
-import { ar, dayMonth, minSec, ordinal, percent, shortDuration, timeOfDay } from '../../core/format';
+import { ar, counted, dayMonth, minSec, ordinal, PAGES, percent, shortDuration, timeOfDay } from '../../core/format';
 import { JUZ_START_PAGES, SURAH_NAMES, surahName } from '../../core/quran/quran-meta';
 import { Icon } from '../../ui/icon';
 import { Sheet } from '../../ui/sheet';
 
-type Filter = 'all' | 'surah' | 'juz';
+/** "read": the pages read in this khatma (and where the reader stopped); a surah or a juz: all its pages. */
+type Filter = 'read' | 'surah' | 'juz';
 
 interface RowView {
   page: string;
@@ -27,7 +29,7 @@ interface RowView {
 
 @Component({
   selector: 'app-stats',
-  imports: [ScrollingModule, Icon, Sheet],
+  imports: [ScrollingModule, RouterLink, Icon, Sheet],
   templateUrl: './stats.html',
   styleUrl: './stats.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -54,7 +56,7 @@ export class Stats {
     };
   });
 
-  protected readonly filter = signal<Filter>('all');
+  protected readonly filter = signal<Filter>('read');
   protected readonly surahFilter = signal(1);
   protected readonly juzFilter = signal(1);
   protected readonly surahOptions = SURAH_NAMES.map((name, i) => ({ value: i + 1, label: `${ar(i + 1)}. ${name}` }));
@@ -65,8 +67,19 @@ export class Stats {
     const f = this.filter();
     return this.store
       .rows()
-      .filter((r) => (f === 'surah' ? r.surah === this.surahFilter() : f === 'juz' ? r.juz === this.juzFilter() : true))
+      .filter((r) =>
+        f === 'surah'
+          ? r.surah === this.surahFilter()
+          : f === 'juz'
+            ? r.juz === this.juzFilter()
+            : !!r.current || r.page === lastPage,
+      )
       .map((r) => toView(r, lastPage));
+  });
+  /** Under the read pages: how many are left in this khatma, instead of a row for each of them. */
+  protected readonly unreadLabel = computed(() => {
+    const left = this.store.rows().filter((r) => !r.current).length;
+    return left ? `باقي في هذه الختمة ${counted(left, PAGES)}` : '';
   });
 
   protected readonly confirmOpen = signal(false);

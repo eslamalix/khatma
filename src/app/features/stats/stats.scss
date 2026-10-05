@@ -121,6 +121,11 @@
   .row > span.wide { display: block; }
 }
 
+.empty,
+.rest { margin: 0; text-align: center; font-size: 14px; color: var(--ink-3); }
+.empty { padding: 28px 16px; a { color: var(--accent); font-weight: 600; } }
+.rest { margin-top: -6px; small { display: block; margin-top: 2px; font-size: 12.5px; } }
+
 .confirm-text { margin: 8px 0 0; font-size: 15px; line-height: 1.7; color: var(--ink-2); }
 .confirm-actions {
   display: flex;

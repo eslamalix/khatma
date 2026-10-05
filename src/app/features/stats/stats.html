@@ -22,7 +22,7 @@
   <div class="table-head">
     <h2>سجل الصفحات</h2>
     <div class="filters">
-      @if (filter() !== 'all') {
+      @if (filter() !== 'read') {
         <select class="select" (change)="pick($event)" [attr.aria-label]="filter() === 'surah' ? 'السورة' : 'الجزء'">
           @for (o of filter() === 'surah' ? surahOptions : juzOptions; track o.value) {
             <option [value]="o.value" [selected]="o.value === (filter() === 'surah' ? surahFilter() : juzFilter())">{{ o.label }}</option>
@@ -30,50 +30,57 @@
         </select>
       }
       <div class="segmented" role="group" aria-label="تصفية">
-        <button type="button" [attr.aria-pressed]="filter() === 'all'" (click)="setFilter('all')">الكل</button>
+        <button type="button" [attr.aria-pressed]="filter() === 'read'" (click)="setFilter('read')">المقروءة</button>
         <button type="button" [attr.aria-pressed]="filter() === 'surah'" (click)="setFilter('surah')">سورة</button>
         <button type="button" [attr.aria-pressed]="filter() === 'juz'" (click)="setFilter('juz')">جزء</button>
       </div>
     </div>
   </div>
 
-  <section class="card table" role="table" aria-label="سجل الصفحات">
-    <div class="row header" role="row">
-      <span role="columnheader">ص</span>
-      <span role="columnheader" class="wide">السورة</span>
-      <span role="columnheader" class="wide">الجزء</span>
-      <span role="columnheader">البداية<span class="narrow"> – النهاية</span></span>
-      <span role="columnheader" class="wide">النهاية</span>
-      <span role="columnheader">المدة</span>
-      <span role="columnheader" class="wide">أفضل وقت</span>
-      <span role="columnheader" class="end">مقابل السابقة</span>
-    </div>
-    <cdk-virtual-scroll-viewport scrollWindow [itemSize]="54">
-      <div class="row" role="row" *cdkVirtualFor="let r of rows(); trackBy: trackRow" [class.unread]="r.state === 'unread'" [class.last]="r.state === 'last'">
-        <span class="p">{{ r.page }}</span>
-        <span class="wide">{{ r.surah }}</span>
-        <span class="wide muted">{{ r.juz }}</span>
-        <span>
-          @switch (r.state) {
-            @case ('read') {
-              <span class="narrow">{{ r.range }}</span><span class="wide">{{ r.start }}</span>
-              <small>{{ r.date }}</small>
-            }
-            @case ('last') {
-              <span class="badge">آخر موقف</span>
-            }
-            @default {
-              <span class="muted">لم تُقرأ بعد</span>
-            }
-          }
-        </span>
-        <span class="wide">{{ r.end || '—' }}</span>
-        <span class="num strong">{{ r.duration }}</span>
-        <span class="wide num muted">{{ r.best }}</span>
-        <span class="end change" [class.slow]="!r.faster">{{ r.change }}</span>
+  @if (rows().length) {
+    <section class="card table" role="table" aria-label="سجل الصفحات">
+      <div class="row header" role="row">
+        <span role="columnheader">ص</span>
+        <span role="columnheader" class="wide">السورة</span>
+        <span role="columnheader" class="wide">الجزء</span>
+        <span role="columnheader">البداية<span class="narrow"> – النهاية</span></span>
+        <span role="columnheader" class="wide">النهاية</span>
+        <span role="columnheader">المدة</span>
+        <span role="columnheader" class="wide">أفضل وقت</span>
+        <span role="columnheader" class="end">مقابل السابقة</span>
       </div>
-    </cdk-virtual-scroll-viewport>
-  </section>
+      <cdk-virtual-scroll-viewport scrollWindow [itemSize]="54">
+        <div class="row" role="row" *cdkVirtualFor="let r of rows(); trackBy: trackRow" [class.unread]="r.state === 'unread'" [class.last]="r.state === 'last'">
+          <span class="p">{{ r.page }}</span>
+          <span class="wide">{{ r.surah }}</span>
+          <span class="wide muted">{{ r.juz }}</span>
+          <span>
+            @switch (r.state) {
+              @case ('read') {
+                <span class="narrow">{{ r.range }}</span><span class="wide">{{ r.start }}</span>
+                <small>{{ r.date }}</small>
+              }
+              @case ('last') {
+                <span class="badge">آخر موقف</span>
+              }
+              @default {
+                <span class="muted">لم تُقرأ بعد</span>
+              }
+            }
+          </span>
+          <span class="wide">{{ r.end || '—' }}</span>
+          <span class="num strong">{{ r.duration }}</span>
+          <span class="wide num muted">{{ r.best }}</span>
+          <span class="end change" [class.slow]="!r.faster">{{ r.change }}</span>
+        </div>
+      </cdk-virtual-scroll-viewport>
+    </section>
+  } @else {
+    <p class="empty">لم تقرأ صفحات في هذه الختمة بعد. <a routerLink="/quran">ابدأ القراءة</a></p>
+  }
+  @if (filter() === 'read' && rows().length && unreadLabel()) {
+    <p class="rest">{{ unreadLabel() }}<small>لعرض كل الصفحات اختر سورة أو جزءاً</small></p>
+  }
 </div>
 
 <app-sheet [open]="confirmOpen()" title="ختمة جديدة" (closed)="confirmOpen.set(false)">
