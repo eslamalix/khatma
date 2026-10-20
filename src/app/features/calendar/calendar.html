@@ -40,7 +40,7 @@
         }
       </div>
 
-      <button type="button" class="nav-btn" (click)="nextPeriod()" aria-label="الفترة التالية">
+      <button type="button" class="nav-btn" (click)="nextPeriod()" [disabled]="atLatest()" aria-label="الفترة التالية">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M14.5 6l-6 6 6 6"></path>
         </svg>
@@ -115,17 +115,20 @@
         <div class="chart-header-label">دقائق القراءة</div>
         <div class="bars-container">
           @for (b of weekData().bars; track b.dateStr) {
-            <div
+            <button
+              type="button"
               class="bar-col"
               [class.selected]="b.isSelected"
               [class.is-best]="b.isBest"
+              [attr.aria-pressed]="b.isSelected"
+              [attr.aria-label]="b.dayName + ' ' + b.dayNum + '، ' + minutesLabel(b.minutes)"
               (click)="selectDateStr(b.dateStr)"
             >
               <span class="val-label" [class.zero]="b.minutes === 0">{{ b.minutesStr }}</span>
               <div class="bar-pill" [style.height.px]="b.heightPx"></div>
               <span class="day-name">{{ b.dayName }}</span>
               <span class="day-num">{{ b.dayNum }}</span>
-            </div>
+            </button>
           }
         </div>
       </section>
@@ -136,7 +139,7 @@
           <div class="card-title">{{ weekData().bestDay?.name ?? '—' }}</div>
           <div class="card-sub">
             @if (weekData().bestDay; as bd) {
-              {{ ar(bd.minutes) }} دقيقة، {{ ar(bd.pages) }} صفحة
+              {{ minutesLabel(bd.minutes) }}، {{ pagesLabel(bd.pages) }}
             } @else {
               لا توجد قراءة بعد
             }
@@ -145,8 +148,8 @@
 
         <div class="card summary-card">
           <div class="card-label">المعدل اليومي</div>
-          <div class="card-title">{{ ar(weekData().dailyAvgMinutes) }} دقيقة</div>
-          <div class="card-sub">{{ ar(weekData().dailyAvgPages) }} صفحة تقريباً</div>
+          <div class="card-title">{{ minutesLabel(weekData().dailyAvgMinutes) }}</div>
+          <div class="card-sub">{{ pagesLabel(weekData().dailyAvgPages) }} تقريباً</div>
         </div>
       </div>
     }
@@ -217,7 +220,7 @@
             <div class="period-title">{{ monthData().title }}</div>
             <div class="period-sub">{{ hijriMonth() }}، {{ monthData().summaryStr }}</div>
           </div>
-          <button type="button" class="nav-btn" (click)="nextMonth()" aria-label="الشهر التالي">
+          <button type="button" class="nav-btn" (click)="nextMonth()" [disabled]="monthAtLatest()" aria-label="الشهر التالي">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M14.5 6l-6 6 6 6"></path>
             </svg>
@@ -292,16 +295,19 @@
 
         <div class="bars-container">
           @for (b of weekData().bars; track b.dateStr) {
-            <div
+            <button
+              type="button"
               class="bar-col"
               [class.selected]="b.isSelected"
               [class.is-best]="b.isBest"
+              [attr.aria-pressed]="b.isSelected"
+              [attr.aria-label]="b.dayName + ' ' + b.dayNum + '، ' + minutesLabel(b.minutes)"
               (click)="selectDateStr(b.dateStr)"
             >
               <span class="val-label" [class.zero]="b.minutes === 0">{{ b.minutesStr }}</span>
               <div class="bar-pill" [style.height.px]="b.heightPx"></div>
               <span class="day-name">{{ b.dayName }} {{ b.dayNum }}</span>
-            </div>
+            </button>
           }
         </div>
       </section>

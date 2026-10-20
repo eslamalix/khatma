@@ -74,10 +74,12 @@ export class Awrad {
 
   @HostListener('window:keydown', ['$event'])
   handleKeydown(e: KeyboardEvent) {
-    if (e.code === 'Space' && !this.adhkarSheetOpen()) {
-      e.preventDefault();
-      this.increment();
-    }
+    if (e.code !== 'Space' || this.adhkarSheetOpen()) return;
+    // Space on a focused button or field is that control's own key (reset, a dhikr pill, a text box).
+    const target = e.target;
+    if (target instanceof Element && target.closest('button, a, input, textarea, select')) return;
+    e.preventDefault();
+    this.increment();
   }
 
   increment() {

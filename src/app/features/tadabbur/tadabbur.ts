@@ -101,7 +101,7 @@ export class Tadabbur {
   protected readonly spreadLabel = computed(() => {
     const ayahs = uniqueAyahs(this.list());
     const surahs = new Set(ayahs.map((a) => a.surah)).size;
-    return `${counted(ayahs.length, AYAHS)} في ${counted(surahs, SURAHS)}`;
+    return `${counted(ayahs.length, AYAHS)} في ${counted(surahs, SURAHS, true)}`;
   });
   protected readonly spreadColor = computed(
     () => `var(--t-${this.activeTheme()?.color ?? 'green'})`,
@@ -111,7 +111,7 @@ export class Tadabbur {
   protected readonly stats = this.store.stats;
   protected readonly duration = shortDuration;
   protected readonly pagesLabel = (n: number) => counted(n, PAGES);
-  protected readonly daysLabel = (n: number) => (n === 1 ? 'يوم واحد' : counted(n, DAYS));
+  protected readonly daysLabel = (n: number) => (n === 1 ? 'يوم واحد' : counted(n, DAYS, true));
   protected readonly week = computed(() => {
     const days = this.stats().week;
     const max = Math.max(1, ...days.map((d) => d.ms));

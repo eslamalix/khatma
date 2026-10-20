@@ -92,6 +92,7 @@ export class QuranReader {
   private readonly pages = inject(QuranPages);
   private readonly pager = viewChild.required<ElementRef<HTMLElement>>('pager');
   private readonly player = viewChild.required(QuranPlayer);
+  private readonly jumpSheet = viewChild<unknown, ElementRef<HTMLElement>>('jumpSheet', { read: ElementRef });
   private readonly injector = inject(Injector);
   protected readonly tadabbur = inject(TadabburStore);
   private readonly router = inject(Router);
@@ -395,8 +396,19 @@ export class QuranReader {
   }
 
   protected openJump(tab: JumpTab) {
-    this.jumpTab.set(tab);
     this.jumpOpen.set(true);
+    this.selectJumpTab(tab);
+  }
+
+  /** The page tab gets the caret; the surah list opens on the surah being read instead of at Al-Fatiha. */
+  protected selectJumpTab(tab: JumpTab) {
+    this.jumpTab.set(tab);
+    this.afterRender(() => {
+      const root = this.jumpSheet()?.nativeElement;
+      if (!root) return;
+      if (tab === 'page') root.querySelector<HTMLInputElement>('input')?.focus();
+      else root.querySelector<HTMLElement>('.current')?.scrollIntoView({ block: 'center' });
+    });
   }
 
   protected setBackgroundTheme(theme: BackgroundTheme) {
@@ -480,12 +492,9 @@ export class QuranReader {
         : `[سورة ${surahName(r.surah)}: ${ar(r.startAyah)} - ${ar(r.endAyah)}]`;
     const textToCopy = `${ayahsText} ${ref}`;
 
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        await navigator.clipboard.writeText(textToCopy);
-      }
-    } catch {
-      // Fallback
+    if (!(await copyText(textToCopy))) {
+      this.showToast('تعذّر النسخ في هذا المتصفح');
+      return;
     }
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate(20);
@@ -496,10 +505,9 @@ export class QuranReader {
 
   protected openSaveToGroup() {
     const grps = this.awradStore.groups();
-    if (grps.length > 0 && !this.targetGroupId()) {
-      this.targetGroupId.set(grps[0].id);
-    }
-    this.isAddingNewGroup.set(false);
+    // The remembered target may have been deleted or renamed away; fall back to the first group, or to a new one.
+    if (!grps.some((g) => g.id === this.targetGroupId())) this.targetGroupId.set(grps[0]?.id ?? '');
+    this.isAddingNewGroup.set(grps.length === 0);
     this.newGroupInput = '';
     this.saveToGroupOpen.set(true);
   }
@@ -519,7 +527,12 @@ export class QuranReader {
       groupTitle = newG.title;
     } else {
       const existing = this.awradStore.groups().find((g) => g.id === groupId);
-      groupTitle = existing?.title || 'المجموعة';
+      if (!existing) {
+        // Nowhere to put it: ask for a new group instead of dropping the passage silently.
+        this.isAddingNewGroup.set(true);
+        return;
+      }
+      groupTitle = existing.title;
     }
 
     const rangeLabel =
@@ -730,7 +743,8 @@ export class QuranReader {
       }
     }
 
-    if (event.key === ' ' && !this.tafsirOpen()) {
+    if (event.key === ' ') {
+      if (target instanceof Element && target.closest('button, a')) return;
       event.preventDefault();
       this.go(1);
     } else if ((event.key === 't' || event.key === 'T') && this.selectedRange()) {
@@ -820,6 +834,32 @@ export class QuranReader {
     }
     this.goTo(to);
     this.commit(to);
+  }
+}
+
+/** Clipboard API where it exists (secure contexts), the old selection command elsewhere; false if neither worked. */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Not allowed here (http, or no user gesture left): try the older way.
+  }
+  try {
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand('copy');
+    area.remove();
+    return ok;
+  } catch {
+    return false;
   }
 }
 

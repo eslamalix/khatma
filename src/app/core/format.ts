@@ -23,10 +23,14 @@ export function minSec(ms: number): string {
 
 type Forms = readonly [one: string, two: string, few: string, many: string];
 
-/** Arabic counted noun: 1 → "دقيقة", 2 → "دقيقتان", 3–10 → "٥ دقائق", 11+ → "٤٤ دقيقة". */
-export function counted(n: number, [one, two, few, many]: Forms): string {
+/**
+ * Arabic counted noun: 1 → "دقيقة", 2 → "دقيقتان", 3–10 → "٥ دقائق", 11+ → "٤٤ دقيقة".
+ * `oblique` gives the dual its accusative/genitive form ("دقيقتين") for use after a verb's object or a
+ * preposition: "خلال يومين", "وزدت صفحتين", "في سورتين".
+ */
+export function counted(n: number, [one, two, few, many]: Forms, oblique = false): string {
   if (n === 1) return one;
-  if (n === 2) return two;
+  if (n === 2) return oblique ? two.replace(/ان$/, 'ين') : two;
   const mod = n % 100;
   return `${ar(n)} ${mod >= 3 && mod <= 10 ? few : many}`;
 }
@@ -43,11 +47,14 @@ export const SURAHS: Forms = ['سورة واحدة', 'سورتان', 'سور', '
 export const GROUPS: Forms = ['مجموعة واحدة', 'مجموعتان', 'مجموعات', 'مجموعة'];
 
 /** 38656000 → { hours: "١٠ ساعات", minutes: "٤٤ دقيقة" } (either part may be empty). */
-export function hoursAndMinutes(ms: number): { hours: string; minutes: string } {
+export function hoursAndMinutes(ms: number, oblique = false): { hours: string; minutes: string } {
   const totalMin = Math.max(0, Math.round(ms / 60000));
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
-  return { hours: h ? counted(h, HOURS) : '', minutes: m || !h ? counted(m, MINUTES) : '' };
+  return {
+    hours: h ? counted(h, HOURS, oblique) : '',
+    minutes: m || !h ? counted(m, MINUTES, oblique) : '',
+  };
 }
 
 /** Compact: "٩ س ٥٢ د", "٥٢ د", "٤٠ ث". */

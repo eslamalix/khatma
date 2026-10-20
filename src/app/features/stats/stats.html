@@ -77,9 +77,16 @@
 </div>
 
 <app-sheet [open]="confirmOpen()" title="ختمة جديدة" (closed)="confirmOpen.set(false)">
-  <p class="confirm-text">تبدأ الختمة {{ nextKhatmaTitle() }} من الصفحة الأولى. قراءاتك السابقة تبقى محفوظة، ونقارن بها سرعتك.</p>
-  <div class="confirm-actions">
-    <button type="button" class="primary" (click)="startNewKhatma()">ابدأ الختمة {{ nextKhatmaTitle() }}</button>
-    <button type="button" class="secondary" (click)="confirmOpen.set(false)">إلغاء</button>
-  </div>
+  @if (canStartNew()) {
+    <p class="confirm-text">تبدأ الختمة {{ nextKhatmaTitle() }} من الصفحة الأولى. قراءاتك السابقة تبقى محفوظة، ونقارن بها سرعتك.</p>
+    <div class="confirm-actions">
+      <button type="button" class="primary" (click)="startNewKhatma()">ابدأ الختمة {{ nextKhatmaTitle() }}</button>
+      <button type="button" class="secondary" (click)="confirmOpen.set(false)">إلغاء</button>
+    </div>
+  } @else {
+    <p class="confirm-text">الختمة {{ khatmaTitle() }} لم تبدأ بعد، فهي ختمتك الجديدة. اقرأ فيها صفحة ثم تقدر تبدأ ختمة أخرى بعدها.</p>
+    <div class="confirm-actions">
+      <button type="button" class="secondary" (click)="confirmOpen.set(false)">حسناً</button>
+    </div>
+  }
 </app-sheet>

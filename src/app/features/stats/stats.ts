@@ -70,6 +70,8 @@ export class Stats {
   });
 
   protected readonly confirmOpen = signal(false);
+  /** A khatma with nothing read in it yet is still the "new" one: starting another would only leave an empty gap. */
+  protected readonly canStartNew = computed(() => this.k().pagesRead > 0);
   protected readonly trackRow = (_: number, r: RowView) => r.pageNo;
 
   protected setFilter(f: Filter) {
@@ -83,6 +85,7 @@ export class Stats {
   }
 
   protected startNewKhatma() {
+    if (!this.canStartNew()) return;
     this.store.startNewKhatma();
     this.confirmOpen.set(false);
   }

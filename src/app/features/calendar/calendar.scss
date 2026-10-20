@@ -71,6 +71,10 @@
     &:active {
       background: var(--fill);
     }
+    &:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
   }
 
   .period-text {
@@ -255,6 +259,7 @@
 
   .bar-col {
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;

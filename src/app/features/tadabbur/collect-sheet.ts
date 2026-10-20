@@ -48,7 +48,7 @@ export class CollectSheet {
   title = '';
 
   protected readonly heading = computed(
-    () => `حفظ ${counted(this.store.collection().length, AYAHS)}`,
+    () => `حفظ ${counted(this.store.collection().length, AYAHS, true)}`,
   );
   protected readonly summary = computed(() => ayahsLabel(this.store.collection(), surahName, ar));
   protected readonly cards = computed(() =>

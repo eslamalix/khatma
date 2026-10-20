@@ -9,6 +9,7 @@ import { BackgroundTheme, DEFAULT_STATE, Reading, ReadingMode, ReadingState } fr
 import { PageVisit } from '../timing/timing-engine';
 import { DayDoc, dayDocOf, dayKeyOf, pendingDays, readingsFromDays, summaryOf } from '../sync/day-docs';
 import packageJson from '../../../../package.json';
+import { toDateStr } from '../calendar/calendar-data';
 
 const STATE_KEY = 'state';
 /**
@@ -34,13 +35,20 @@ export class ReadingStore {
   readonly kpis = computed(() => computeKpis(this.readings(), this.state().currentKhatma));
   readonly insight = computed(() => latestSurahInsight(this.readings(), this.state().currentKhatma));
   readonly rows = computed(() => pageRows(this.readings(), this.state().currentKhatma));
+  /**
+   * The local calendar day, refreshed when the app is brought back and once a minute, so the wird
+   * and the streak roll over at midnight even while a screen stays open.
+   */
+  private readonly today = signal(toDateStr(new Date()));
   /** Today's wird progress, or null before a daily goal is chosen. */
   readonly wird = computed(() => {
     const goal = this.state().dailyGoalPages;
+    this.today();
     return goal ? wirdToday(this.readings(), goal) : null;
   });
   readonly streak = computed(() => {
     const goal = this.state().dailyGoalPages;
+    this.today();
     return goal ? wirdStreak(this.readings(), goal) : 0;
   });
 
@@ -51,6 +59,11 @@ export class ReadingStore {
   constructor() {
     this.cloud.onAccount((account, isNewHere) => void this.mergeAccount(account, isNewHere));
     this.cloud.registerDevice({ flush: () => this.flushDevice(), wipe: () => this.wipeDevice() });
+    if (typeof document !== 'undefined') {
+      const refreshDay = () => this.today.set(toDateStr(new Date()));
+      document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && refreshDay());
+      setInterval(refreshDay, 60_000);
+    }
   }
 
   whenReady() {

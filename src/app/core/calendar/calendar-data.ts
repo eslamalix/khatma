@@ -317,7 +317,7 @@ export function getMonthData(year: number, month: number, daysMap: Map<string, D
   const m = totalMin % 60;
   const timeStr = h > 0 ? `${ar(h)} س ${ar(m)} د` : `${ar(m)} د`;
   const summaryStr = totalMs > 0
-    ? `${timeStr}، ${ar(totalPages)} ${counted(totalPages, PAGES)}`
+    ? `${timeStr}، ${counted(totalPages, PAGES)}`
     : 'لم تقرأ بعد هذا الشهر';
 
   return {
@@ -426,7 +426,7 @@ export function getWeekData(
   const m = totalMin % 60;
   const timeStr = h > 0 ? `${ar(h)} س ${ar(m)} د` : `${ar(m)} د`;
   const summaryStr = totalMs > 0
-    ? `${timeStr}، ${ar(totalPages)} ${counted(totalPages, PAGES)}`
+    ? `${timeStr}، ${counted(totalPages, PAGES)}`
     : 'لا توجد قراءات في هذا الأسبوع';
 
   const dailyAvgMinutes = Math.round(totalMin / 7);

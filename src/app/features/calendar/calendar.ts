@@ -9,7 +9,7 @@ import {
   getWeekData,
   toDateStr,
 } from '../../core/calendar/calendar-data';
-import { ar, dayMonth, hijriDate, hijriMonthSpan, timeOfDay } from '../../core/format';
+import { ar, counted, dayMonth, hijriDate, hijriMonthSpan, MINUTES, PAGES, timeOfDay } from '../../core/format';
 import { surahAtPage, surahName } from '../../core/quran/quran-meta';
 import { Icon } from '../../ui/icon';
 
@@ -42,6 +42,29 @@ export class Calendar {
 
   protected readonly todayStr = toDateStr(new Date());
   protected readonly selectedDateStr = computed(() => toDateStr(this.selectedDate()));
+  protected readonly minutesLabel = (n: number) => counted(n, MINUTES);
+  protected readonly pagesLabel = (n: number) => counted(n, PAGES);
+
+  /** The period on screen already holds today: there is nothing to read further ahead. */
+  protected readonly atLatest = computed(() => {
+    const today = new Date();
+    switch (this.viewMode()) {
+      case 'month':
+        return this.monthAtLatest();
+      case 'week': {
+        const d = this.selectedDate();
+        const saturday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - d.getDay() + 6);
+        return toDateStr(saturday) >= this.todayStr;
+      }
+      default:
+        return this.selectedDateStr() >= toDateStr(today);
+    }
+  });
+  protected readonly monthAtLatest = computed(() => {
+    const { year, month } = this.currentMonth();
+    const now = new Date();
+    return year > now.getFullYear() || (year === now.getFullYear() && month >= now.getMonth());
+  });
 
   protected readonly daysMap = computed(() => buildDaysMap(this.store.readings()));
 
@@ -127,6 +150,7 @@ export class Calendar {
   }
 
   nextPeriod() {
+    if (this.atLatest()) return;
     const mode = this.viewMode();
     if (mode === 'month') {
       const cur = this.currentMonth();
@@ -162,6 +186,7 @@ export class Calendar {
   }
 
   nextMonth() {
+    if (this.monthAtLatest()) return;
     const cur = this.currentMonth();
     let month = cur.month + 1;
     let year = cur.year;

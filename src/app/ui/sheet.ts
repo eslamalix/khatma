@@ -1,6 +1,9 @@
 import { ChangeDetectionStrategy, Component, effect, ElementRef, input, output, viewChild } from '@angular/core';
 import { Icon } from './icon';
 
+/** Sheets open at once; the page behind stops scrolling while any of them is up. */
+let openSheets = 0;
+
 /** Bottom sheet on phones, centered panel on larger screens. */
 @Component({
   selector: 'app-sheet',
@@ -21,15 +24,15 @@ import { Icon } from './icon';
     :host { position: fixed; inset: 0; z-index: 50; pointer-events: none; }
     .backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.32); opacity: 0; transition: opacity .3s var(--ease); }
     .panel {
-      position: absolute; inset-inline: 0; bottom: 0; max-height: 82dvh; overflow: auto;
+      position: absolute; inset-inline: 0; bottom: 0; max-height: 82dvh; overflow: auto; overscroll-behavior: contain;
       padding: 8px 20px calc(20px + env(safe-area-inset-bottom));
       background: var(--card); border-radius: 22px 22px 0 0; box-shadow: var(--shadow-float);
       transform: translateY(100%); transition: transform .38s var(--ease); outline: none;
     }
     .panel::before { content: ''; display: block; width: 38px; height: 5px; border-radius: 3px; background: var(--track); margin: 0 auto 6px; }
-    header { display: flex; align-items: center; justify-content: space-between; height: 44px; }
-    h2 { margin: 0; font-size: 18px; font-weight: 700; }
-    .close { width: 32px; height: 32px; border-radius: 16px; display: grid; place-items: center; background: var(--fill); color: var(--ink-2); }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+    h2 { flex: 1; min-width: 0; margin: 0; font-size: 18px; line-height: 1.3; font-weight: 700; overflow-wrap: anywhere; }
+    .close { flex: none; width: 32px; height: 32px; border-radius: 16px; display: grid; place-items: center; background: var(--fill); color: var(--ink-2); }
     :host(.open) { pointer-events: auto; }
     :host(.open) .backdrop { opacity: 1; }
     :host(.open) .panel { transform: none; }
@@ -48,8 +51,18 @@ export class Sheet {
   private readonly panel = viewChild.required<ElementRef<HTMLElement>>('panel');
 
   constructor() {
-    effect(() => {
-      if (this.open()) queueMicrotask(() => this.panel().nativeElement.focus({ preventScroll: true }));
+    effect((onCleanup) => {
+      if (!this.open()) return;
+      // A field marked `autofocus` gets the caret straight away (the keyboard on a phone); otherwise the panel.
+      queueMicrotask(() => {
+        const panel = this.panel().nativeElement;
+        (panel.querySelector<HTMLElement>('[autofocus]') ?? panel).focus({ preventScroll: true });
+      });
+      if (typeof document === 'undefined') return;
+      if (++openSheets === 1) document.body.style.overflow = 'hidden';
+      onCleanup(() => {
+        if (--openSheets === 0) document.body.style.overflow = '';
+      });
     });
   }
 }

@@ -45,7 +45,7 @@ export class Home {
   private minutesFor(pages: number) {
     const min = Math.round((pages * this.k().avgMs) / 60_000);
     if (min < 1) return 'أقل من دقيقة';
-    return min === 2 ? 'حوالي دقيقتين' : `حوالي ${counted(min, MINUTES)}`;
+    return `حوالي ${counted(min, MINUTES, true)}`;
   }
 
   protected readonly ringOffset = computed(() => RING_C * (1 - (this.wird()?.ratio ?? 0)));
@@ -53,7 +53,7 @@ export class Home {
   protected readonly wirdSub = computed(() => {
     const w = this.wird();
     if (!w) return '';
-    if (w.done) return w.read > w.goal ? `وزدت ${counted(w.read - w.goal, PAGES)}، بارك الله فيك` : 'بارك الله فيك';
+    if (w.done) return w.read > w.goal ? `وزدت ${counted(w.read - w.goal, PAGES, true)}، بارك الله فيك` : 'بارك الله فيك';
     if (!w.read) return `${counted(w.goal, PAGES)}، ${this.minutesFor(w.goal)}`;
     return `باقي ${counted(w.remaining, PAGES)}، ${this.minutesFor(w.remaining)}`;
   });
@@ -73,13 +73,13 @@ export class Home {
   protected readonly khatmaDone = computed(() => 1 - this.k().remainingRatio);
   protected readonly pagesReadText = computed(() => `قرأت ${ar(this.k().pagesRead)} من ${ar(TOTAL_PAGES)} صفحة`);
   protected readonly remainingTimeText = computed(() => {
-    const { hours, minutes } = hoursAndMinutes(this.k().remainingMs);
+    const { hours, minutes } = hoursAndMinutes(this.k().remainingMs, true);
     return [hours, minutes].filter(Boolean).join(' و');
   });
   protected readonly finishText = computed(() => {
     const goal = this.store.state().dailyGoalPages;
     if (!goal) return '';
-    return `بوردك تختمها خلال ${counted(daysAtWird(this.k().remainingPages, goal), DAYS)} بإذن الله.`;
+    return `بوردك تختمها خلال ${counted(daysAtWird(this.k().remainingPages, goal), DAYS, true)} بإذن الله.`;
   });
 
   protected readonly insight = this.store.insight;
@@ -96,7 +96,7 @@ export class Home {
   protected readonly goalOpen = signal(false);
   protected readonly draftGoal = signal(5);
   protected readonly draftMinutes = computed(() => this.minutesFor(this.draftGoal()));
-  protected readonly draftFinish = computed(() => counted(daysAtWird(TOTAL_PAGES, this.draftGoal()), DAYS));
+  protected readonly draftFinish = computed(() => counted(daysAtWird(TOTAL_PAGES, this.draftGoal()), DAYS, true));
 
   protected openGoal() {
     this.draftGoal.set(this.store.state().dailyGoalPages ?? 5);

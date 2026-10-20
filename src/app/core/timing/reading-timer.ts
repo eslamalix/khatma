@@ -31,6 +31,8 @@ export class ReadingTimer {
   private partner: number | null = null;
   private interval: ReturnType<typeof setInterval> | null = null;
   private lastActivityPing = 0;
+  /** The page last opened, so a page restored from the back-forward cache picks its timing back up. */
+  private lastOpened: number | null = null;
 
   /** Active seconds on the open page, refreshed every second while reading. */
   readonly elapsedMs = signal(0);
@@ -43,6 +45,10 @@ export class ReadingTimer {
   };
   private readonly onVisibility = () => this.engine.setVisible(this.doc.visibilityState === 'visible');
   private readonly onPageHide = () => this.engine.close();
+  /** `pagehide` closed the page off; coming back (bfcache, iOS app switch) reopens it as a fresh visit. */
+  private readonly onPageShow = () => {
+    if (this.interval && this.engine.currentPage === null && this.lastOpened !== null) this.engine.open(this.lastOpened);
+  };
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.stop());
@@ -53,6 +59,7 @@ export class ReadingTimer {
     if (!this.interval) this.start();
     if (partner !== this.partner && this.engine.currentPage === page) this.engine.close();
     this.engine.open(page);
+    this.lastOpened = page;
     this.partner = partner;
     if (this.target === 'tadabbur') this.tadabbur.setLastPage(page);
     else this.store.setLastPage(page);
@@ -89,6 +96,8 @@ export class ReadingTimer {
     for (const e of ACTIVITY_EVENTS) this.doc.removeEventListener(e, this.onActivity, true);
     this.doc.removeEventListener('visibilitychange', this.onVisibility);
     this.doc.defaultView?.removeEventListener('pagehide', this.onPageHide);
+    this.doc.defaultView?.removeEventListener('pageshow', this.onPageShow);
+    this.lastOpened = null;
     this.elapsedMs.set(0);
   }
 
@@ -96,6 +105,7 @@ export class ReadingTimer {
     for (const e of ACTIVITY_EVENTS) this.doc.addEventListener(e, this.onActivity, { capture: true, passive: true });
     this.doc.addEventListener('visibilitychange', this.onVisibility);
     this.doc.defaultView?.addEventListener('pagehide', this.onPageHide);
+    this.doc.defaultView?.addEventListener('pageshow', this.onPageShow);
     this.engine.setVisible(this.doc.visibilityState === 'visible');
     this.interval = setInterval(() => {
       this.engine.tick();

@@ -223,17 +223,17 @@
 <app-collect-sheet [open]="collectOpen()" (closed)="collectOpen.set(false)" (saved)="onCollected($event)" />
 
 <!-- Jump Sheet -->
-<app-sheet [open]="jumpOpen()" title="انتقل إلى" (closed)="jumpOpen.set(false)">
+<app-sheet #jumpSheet [open]="jumpOpen()" title="انتقل إلى" (closed)="jumpOpen.set(false)">
   <div class="segmented" role="group">
-    <button type="button" [attr.aria-pressed]="jumpTab() === 'page'" (click)="jumpTab.set('page')">صفحة</button>
-    <button type="button" [attr.aria-pressed]="jumpTab() === 'surah'" (click)="jumpTab.set('surah')">سورة</button>
-    <button type="button" [attr.aria-pressed]="jumpTab() === 'juz'" (click)="jumpTab.set('juz')">جزء</button>
+    <button type="button" [attr.aria-pressed]="jumpTab() === 'page'" (click)="selectJumpTab('page')">صفحة</button>
+    <button type="button" [attr.aria-pressed]="jumpTab() === 'surah'" (click)="selectJumpTab('surah')">سورة</button>
+    <button type="button" [attr.aria-pressed]="jumpTab() === 'juz'" (click)="selectJumpTab('juz')">جزء</button>
   </div>
 
   @switch (jumpTab()) {
     @case ('page') {
       <form class="page-form" (submit)="$event.preventDefault(); jumpToInput(pageInput)">
-        <input #pageInput type="text" inputmode="numeric" [placeholder]="'من ١ إلى ' + ar(total)" [attr.aria-label]="'رقم الصفحة'" />
+        <input #pageInput type="text" inputmode="numeric" autocomplete="off" [placeholder]="'من ١ إلى ' + ar(total)" [attr.aria-label]="'رقم الصفحة'" autofocus />
         <button type="submit">انتقل</button>
       </form>
     }

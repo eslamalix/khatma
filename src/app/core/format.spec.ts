@@ -15,6 +15,14 @@ describe('format', () => {
     expect(counted(13, DAYS)).toBe('١٣ يوماً');
   });
 
+  it('bends the dual after prepositions and objects', () => {
+    expect(counted(2, DAYS, true)).toBe('يومين');
+    expect(counted(2, MINUTES, true)).toBe('دقيقتين');
+    expect(counted(1, DAYS, true)).toBe('يوم');
+    expect(counted(5, DAYS, true)).toBe('٥ أيام');
+    expect(hoursAndMinutes(7_200_000, true)).toEqual({ hours: 'ساعتين', minutes: '' });
+  });
+
   it('splits hours and minutes', () => {
     expect(hoursAndMinutes(38_656_000)).toEqual({ hours: '١٠ ساعات', minutes: '٤٤ دقيقة' });
     expect(hoursAndMinutes(3_600_000)).toEqual({ hours: 'ساعة', minutes: '' });
