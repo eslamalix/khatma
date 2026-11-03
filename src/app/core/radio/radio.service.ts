@@ -9,14 +9,23 @@ export interface RadioStation {
   place: string;
   /** Full on-air name, used for the lock screen and the now-playing bar. */
   title: string;
-  /** Live MP3 streams, tried in order; later ones are backups. */
-  streams: string[];
+  /** Live streams, tried in order; later ones are backups. */
+  streams: RadioStream[];
+}
+
+export interface RadioStream {
+  url: string;
+  /** An HLS playlist of raw AAC segments: Apple's engine plays it, Chrome claims to but stalls. */
+  hls?: boolean;
 }
 
 /**
- * Both stations are relayed through Radiojar, whose station records name them "saudi-quran-radio"
- * and "quran-radio-cairo". Verified live on 2026-10-05; the stream URLs redirect to plain http, which
- * browsers upgrade for audio, and playback from an https page was confirmed in Chromium.
+ * Streams are listed https-first, so no mixed-content rule (the service worker's or a browser's) is in
+ * the path. Radiojar redirects every request to a plain-http address, so it is only a backup. Checked on
+ * 2026-10-06, and each one played again from the live site on 2026-11-04:
+ * - Saudi: the HLS stream the Saudi Broadcasting Authority's own player uses (radioplus.sba.sa/ar/live/4).
+ * - Cairo: Zeno.fm and OmniRadio relays, whose audio matched Radiojar's Cairo stream exactly (about 4 s
+ *   and 13 s behind).
  */
 export const RADIO_STATIONS: RadioStation[] = [
   {
@@ -24,14 +33,22 @@ export const RADIO_STATIONS: RadioStation[] = [
     name: 'السعودية',
     place: 'من المملكة',
     title: 'إذاعة القرآن الكريم من المملكة العربية السعودية',
-    streams: ['https://stream.radiojar.com/0tpy1h0kxtzuv', 'https://stream.radiojar.com/4wqre23fytzuv'],
+    streams: [
+      { url: 'https://live.kwikmotion.com/sbrksaquranradiolive/ksaquranradio/playlist.m3u8', hls: true },
+      { url: 'https://stream.radiojar.com/0tpy1h0kxtzuv' },
+      { url: 'https://stream.radiojar.com/4wqre23fytzuv' },
+    ],
   },
   {
     id: 'cairo',
     name: 'القاهرة',
     place: 'من مصر',
     title: 'إذاعة القرآن الكريم من القاهرة',
-    streams: ['https://stream.radiojar.com/8s5u5tpdtwzuv'],
+    streams: [
+      { url: 'https://stream.zeno.fm/ru2hqnplhk7uv' },
+      { url: 'https://radio.xecod.com/station/quran-cairo' },
+      { url: 'https://stream.radiojar.com/8s5u5tpdtwzuv' },
+    ],
   },
 ];
 
@@ -40,9 +57,24 @@ export type RadioStatus = 'idle' | 'loading' | 'playing' | 'error';
 /** A stream that has not started this long after we asked is treated as failed. */
 const CONNECT_TIMEOUT_MS = 15_000;
 
-/** Index of the stream to try after `index` fails, or null when every stream has been tried. */
-export function streamAfter(station: RadioStation, index: number): number | null {
-  return index + 1 < station.streams.length ? index + 1 : null;
+/** The stream addresses this browser can try, in order. */
+export function playableStreams(station: RadioStation, canPlayHls: boolean): string[] {
+  return station.streams.filter((s) => canPlayHls || !s.hls).map((s) => bypassWorker(s.url));
+}
+
+/**
+ * Keeps Angular's service worker out of a live stream. Fetched by the worker, Radiojar's redirect to
+ * plain http is blocked as mixed content and the station fails at once; the <audio> element's own
+ * request is upgraded and plays. That is why the radio worked in development (no worker) and failed
+ * on the site. A stream has nothing to cache either.
+ */
+export function bypassWorker(url: string): string {
+  return `${url}${url.includes('?') ? '&' : '?'}ngsw-bypass=1`;
+}
+
+/** Index of the stream to try after `index` fails, or null when all `count` have been tried. */
+export function streamAfter(count: number, index: number): number | null {
+  return index + 1 < count ? index + 1 : null;
 }
 
 /**
@@ -54,6 +86,12 @@ export function streamAfter(station: RadioStation, index: number): number | null
 export class RadioService {
   private readonly audio: HTMLAudioElement | null = typeof Audio !== 'undefined' ? new Audio() : null;
   private readonly recitation = inject(QuranAudioService);
+  /** Safari, and every browser on iPhone (all run Apple's engine). */
+  private readonly canPlayHls =
+    typeof navigator !== 'undefined' &&
+    navigator.vendor.startsWith('Apple') &&
+    !!this.audio?.canPlayType('application/vnd.apple.mpegurl');
+  private urls: string[] = [];
   private streamIndex = 0;
   private expectedSrc = '';
   private timer: ReturnType<typeof setTimeout> | undefined;
@@ -95,6 +133,7 @@ export class RadioService {
   play(station: RadioStation) {
     this.recitation.stop();
     this.station.set(station);
+    this.urls = playableStreams(station, this.canPlayHls);
     this.streamIndex = 0;
     this.connect();
     this.bindMediaSession();
@@ -119,12 +158,11 @@ export class RadioService {
 
   private connect() {
     const a = this.audio;
-    const station = this.station();
-    if (!a || !station) return;
+    const url = this.urls[this.streamIndex];
+    if (!a || !url) return;
     clearTimeout(this.timer);
     this.status.set('loading');
-    this.expectedSrc = station.streams[this.streamIndex];
-    a.src = this.expectedSrc;
+    a.src = url;
     const src = a.src;
     // Normalised by the element, so later comparisons use what it reports.
     this.expectedSrc = src;
@@ -137,9 +175,8 @@ export class RadioService {
   }
 
   private fallback() {
-    const station = this.station();
-    const next = station && streamAfter(station, this.streamIndex);
-    if (next === null || next === undefined) {
+    const next = streamAfter(this.urls.length, this.streamIndex);
+    if (next === null) {
       clearTimeout(this.timer);
       this.status.set('error');
       this.audio?.pause();
