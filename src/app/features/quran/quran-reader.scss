@@ -9,8 +9,12 @@
   --top-h: calc(64px + env(safe-area-inset-top));
   --bottom-h: 60px;
   --player-h: 62px;
-  /* Mini player rests just above the page navigation, or at the edge when that is hidden. */
-  --player-bottom: calc(var(--bottom-h) + 10px);
+  /* Mini player rests just above the page navigation (and the tadabbur strip)... */
+  --player-rest: calc(var(--bottom-h) + 10px);
+  /* ...and drops to the edge while the selection bar takes the navigation's place. */
+  --player-bottom: var(--player-rest);
+  /* Room under the page that its text is fitted above: the bars that stay while reading. */
+  --fit-bottom: calc(var(--bottom-h) + 12px);
 }
 
 :host(.has-selection) { --player-bottom: calc(12px + env(safe-area-inset-bottom)); }
@@ -154,7 +158,7 @@
     touch-action: pan-y;
     /* The reader keeps the text in view itself as pages are measured; the browser's own anchoring would double it. */
     overflow-anchor: none;
-    padding: var(--top-h) 0 calc(var(--player-bottom) + 16px + var(--slide-extra, 0px));
+    padding: var(--top-h) 0 calc(var(--fit-bottom) + 16px + var(--slide-extra, 0px));
     .slide.flow { bottom: auto; overflow: visible; padding: 0; scroll-snap-align: none; }
     .slide.flow::after { display: none; }
   }
@@ -171,7 +175,7 @@
   justify-content: center;
   align-items: flex-start;
   column-gap: 14px;
-  padding-inline: 92px;
+  padding-inline: var(--side-room, 0px);
   app-mushaf-page { flex: 1 1 0; min-width: 0; max-width: 720px; }
   &::after { flex-basis: 100%; }
 }
@@ -182,21 +186,22 @@
   top: 0;
   bottom: 0;
   overflow-y: auto;
-  /* Room for the scrollbar is kept whether or not a page overflows, so it never narrows the pages while
-     their text is being sized (that change of width would size the text again, and again). */
-  scrollbar-gutter: stable both-edges;
+  /* No scrollbar: one that comes and goes narrows the page while its text is sized (the text is then sized
+     again, and again), and a gutter kept for it costs 30px of width on every page. Wheel, touch, Space and
+     the "more" arrow still scroll a page taller than the screen. */
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
   overscroll-behavior-y: contain;
   scroll-snap-align: start;
   scroll-snap-stop: always;
-  padding: var(--top-h) 0 calc(var(--bottom-h) + 12px);
-  /* Extra scroll room under the page while floating bars cover its end (does not re-fit the text). */
+  padding: var(--top-h) 0 var(--fit-bottom);
+  /* Extra scroll room under the page while the selection bar covers its end: it comes and goes with a
+     tap, so it does not re-fit the text. */
   &::after { content: ''; display: block; height: var(--slide-extra, 0px); }
 }
 
 .side { display: none; }
-:host(.has-player) { --slide-extra: calc(var(--player-h) + 16px); }
 :host(.has-selection) { --slide-extra: 90px; }
-:host(.has-selection.has-player) { --slide-extra: 170px; }
 
 .ayah-bar {
   position: absolute;
@@ -300,6 +305,9 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 12;
+  /* Its own width: with only `left: 50%` it would shrink to half the reader and wrap. */
+  width: max-content;
+  max-width: calc(100% - 24px);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -360,12 +368,13 @@
 /* Tadabbur mode: a strip of themes just above the page navigation; the mini player rests above it. */
 :host(.tadabbur-on) {
   --strip-h: 52px;
-  --player-bottom: calc(var(--bottom-h) + 10px + var(--strip-h) + 8px);
+  --player-rest: calc(var(--bottom-h) + 10px + var(--strip-h) + 8px);
+  /* The strip takes its room from the page, so the text is fitted above it and the page's end shows. */
+  --fit-bottom: var(--player-rest);
   --slide-extra: 0px;
 }
-:host(.tadabbur-on.has-player) { --slide-extra: calc(var(--player-h) + 16px); }
-/* The strip takes its room from the page, so the text is fitted above it and the page's end shows. */
-:host(.tadabbur-on) .slide { padding-bottom: var(--player-bottom); }
+/* So does the mini player while a recitation plays (after the rule above, which it overrides). */
+:host(.has-player) { --fit-bottom: calc(var(--player-rest) + var(--player-h) + 8px); }
 
 .tadabbur-strip {
   position: absolute;
@@ -433,7 +442,6 @@
 
 .toast-popup.undo {
   padding-inline-end: 6px;
-  max-width: calc(100% - 24px);
   span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   button {
     flex: none;
@@ -468,7 +476,7 @@
 
 @media (min-width: 768px) {
   :host { background: var(--desk); }
-  :host(.tadabbur-on) { --player-bottom: calc(22px + 54px + 12px + var(--strip-h) + 10px); }
+  :host(.tadabbur-on) { --player-rest: calc(22px + 54px + 12px + var(--strip-h) + 10px); }
   .tadabbur-strip { bottom: calc(22px + 54px + 12px); }
   .tip-float { bottom: calc(22px + 54px + 14px); }
   .tip-float.above-strip { bottom: calc(22px + 54px + 12px + var(--strip-h, 52px) + 12px); }
@@ -496,27 +504,34 @@
     background: transparent;
     font-size: 15px;
   }
-  .slide { padding-bottom: 80px; }
+  /* Room beside the page: a narrow margin, wider where a mouse turns pages with the side arrows. An arrow
+     (12px to 60px from the edge) may rest on the paper's blank margin, never on its text, which starts at
+     least 72px in. A touch screen swipes, so it gets no arrows and the page is wider. */
+  :host { --side-room: 16px; --fit-bottom: 80px; }
+  .slide { padding-inline: var(--side-room); }
   .side {
-    display: grid;
     place-items: center;
     position: absolute;
     top: 50%;
     z-index: 4;
-    width: 52px;
-    height: 52px;
-    margin-top: -26px;
-    border-radius: 26px;
+    width: 48px;
+    height: 48px;
+    margin-top: -24px;
+    border-radius: 24px;
     background: var(--fill);
     color: var(--ink);
     transition: opacity 0.25s var(--ease), background 0.2s;
     &:hover { background: var(--track); }
     &:disabled { opacity: 0.3; cursor: default; }
   }
-  .prev { right: 28px; }
-  .next { left: 28px; }
-  .more { left: 28px; top: auto; bottom: calc(var(--player-bottom) + 12px); margin-top: 0; animation: fadeIn 0.2s var(--ease); }
-  :host { --player-bottom: calc(22px + 54px + 12px); }
+  @media (hover: hover) and (pointer: fine) {
+    :host { --side-room: 32px; }
+    .side { display: grid; }
+  }
+  .prev { right: 12px; }
+  .next { left: 12px; }
+  .more { left: 12px; top: auto; bottom: calc(var(--player-bottom) + 12px); margin-top: 0; animation: fadeIn 0.2s var(--ease); }
+  :host { --player-rest: calc(22px + 54px + 12px); }
   :host(.has-selection) { --player-bottom: 22px; }
   .ayah-bar { bottom: 22px; }
   :host(.has-player) .ayah-bar { bottom: calc(22px + var(--player-h) + 12px); }
@@ -527,7 +542,7 @@
  * so the page keeps the same height as in plain reading and is seen whole.
  */
 @media (min-width: 1024px) {
-  :host(.tadabbur-on) { --player-bottom: calc(22px + 54px + 12px); }
+  :host(.tadabbur-on) { --player-rest: calc(22px + 54px + 12px); }
   :host(.tadabbur-on) .nav { left: calc(50% + 226px); }
   :host(.tadabbur-on) .tadabbur-strip { bottom: 23px; left: calc(50% - 226px); width: 440px; }
 }

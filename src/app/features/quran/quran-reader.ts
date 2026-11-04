@@ -376,7 +376,9 @@ export class QuranReader {
         cancelAnimationFrame(frame);
         frame = requestAnimationFrame(() => {
           const slide = this.slideInView();
-          this.moreBelow.set(!!slide && slide.scrollHeight - slide.clientHeight - slide.scrollTop > 24);
+          // Text left below, not the empty room added under the page while a bar floats over its end.
+          const room = slide ? parseFloat(getComputedStyle(slide, '::after').height) || 0 : 0;
+          this.moreBelow.set(!!slide && slide.scrollHeight - slide.clientHeight - slide.scrollTop - room > 24);
         });
       };
       el.addEventListener('scroll', check, { capture: true, passive: true });
