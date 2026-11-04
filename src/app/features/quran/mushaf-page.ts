@@ -26,6 +26,12 @@ const FIT_MAX_WIDE = 1.9;
 /** Wide screens show the whole page at once, like a printed mushaf, so the text may shrink further. */
 const FIT_MIN_WIDE = 0.58;
 const WIDE = 768;
+/**
+ * Height (px under the top bar) under which a wide screen still reads like a phone: a whole page cannot be
+ * shown even at the smallest size (a phone on its side), so the text stays at a phone's reading size and
+ * scrolls.
+ */
+const WIDE_MIN_ROOM = 400;
 /** Vertical reading on a wide screen: one page in the middle, at a comfortable size. */
 const FLOW_FIT_WIDE = 1;
 
@@ -122,8 +128,20 @@ export class MushafPage {
       pageAyahs: this.data()?.ayahs ?? [a],
       page: this.page(),
     });
-    // The selection toolbar rises from the bottom; lift the tapped ayah above it.
-    requestAnimationFrame(() => this.reveal(el, 240));
+    // The selection toolbar rises from the bottom; lift the tapped ayah above it, once it is drawn.
+    afterNextRender(() => this.reveal(el, this.toolbarRoom()), { injector: this.injector });
+  }
+
+  /**
+   * Height the selection toolbar takes at the bottom of the reader, with a margin. Measured by layout
+   * (`offsetTop` leaves out its entrance animation): a fixed figure would lift an ayah the one-row bar of a
+   * wide screen never covers, and push the top of the page under the header. None when the tap cleared the
+   * selection (or gathered the ayah in tadabbur mode, where the page is already fitted above the strip).
+   */
+  private toolbarRoom() {
+    const bar = this.host.nativeElement.closest('app-quran-reader')?.querySelector<HTMLElement>('.ayah-bar');
+    const reader = bar?.offsetParent;
+    return bar && reader ? reader.clientHeight - bar.offsetTop + 12 : 0;
   }
 
   protected readonly blocks = computed<Block[]>(() => {
@@ -182,7 +200,7 @@ export class MushafPage {
         const b = entry.borderBoxSize[0];
         const c = entry.contentBoxSize[0];
         const size = [b.inlineSize, b.blockSize, c.blockSize].map(Math.round).join('x');
-        if (size !== last && last) this.fit();
+        if (size !== last && last) this.fitNextFrame();
         last = size;
       });
       observer.observe(slide, { box: 'content-box' });
@@ -192,7 +210,24 @@ export class MushafPage {
       const refit = () => this.fit();
       document.fonts?.addEventListener('loadingdone', refit);
       this.injector.get(DestroyRef).onDestroy(() => document.fonts?.removeEventListener('loadingdone', refit));
-      this.injector.get(DestroyRef).onDestroy(() => observer.disconnect());
+      this.injector.get(DestroyRef).onDestroy(() => {
+        observer.disconnect();
+        cancelAnimationFrame(this.fitFrame);
+      });
+    });
+  }
+
+  private fitFrame = 0;
+
+  /**
+   * Fit on the next frame, for size changes seen by a ResizeObserver: fitting inside its callback resizes
+   * boxes other observers watch in the same frame, which the browser reports as a "ResizeObserver loop".
+   */
+  private fitNextFrame() {
+    if (this.fitFrame) return;
+    this.fitFrame = requestAnimationFrame(() => {
+      this.fitFrame = 0;
+      this.fit();
     });
   }
 
@@ -219,7 +254,7 @@ export class MushafPage {
     this.textObserver?.disconnect();
     this.textObserver ??= new ResizeObserver(() => {
       const host = this.host.nativeElement;
-      if (Math.abs(textHeight(host) - Number(host.dataset['fittedHeight'] ?? 0)) > 2) this.fit();
+      if (Math.abs(textHeight(host) - Number(host.dataset['fittedHeight'] ?? 0)) > 2) this.fitNextFrame();
     });
     for (const el of this.host.nativeElement.querySelectorAll<HTMLElement>('.sheet > :not(.page-no)')) this.textObserver.observe(el);
     this.injector.get(DestroyRef).onDestroy(() => this.textObserver?.disconnect());
@@ -270,7 +305,12 @@ export class MushafPage {
       return copy.offsetHeight + margins <= available;
     };
 
-    const wide = slide.clientWidth >= WIDE;
+    // The page on paper (the same breakpoint as the styles, whatever the sidebar and margins take from the
+    // slide), with height enough to show it whole. That height is taken under the top bar only: the bars at
+    // the bottom come and go (the mini player, the tadabbur strip), and must not switch a laptop to a phone's
+    // sizes when a recitation starts.
+    const room = slide.clientHeight - parseFloat(cs.paddingTop);
+    const wide = matchMedia(`(min-width: ${WIDE}px)`).matches && room >= WIDE_MIN_ROOM;
     const min = wide ? FIT_MIN_WIDE : FIT_MIN;
     const max = wide ? FIT_MAX_WIDE : FIT_MAX;
     let best = min;
